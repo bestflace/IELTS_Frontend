@@ -1,0 +1,699 @@
+"use client";
+
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+import {
+  AlertTriangle,
+  ArrowLeft,
+  BarChart3,
+  BookOpen,
+  CheckCircle2,
+  Clock,
+  FileText,
+  Headphones,
+  Loader2,
+  Mic,
+  PenLine,
+  RefreshCcw,
+  Sparkles,
+  Target,
+  XCircle,
+} from "lucide-react";
+
+import { Badge } from "@/components/common/Badge";
+import { Button } from "@/components/common/Button";
+import { Card, CardContent } from "@/components/common/Card";
+import { getAttemptDetail, getAttemptResult } from "@/lib/api/attempts.api";
+import type { Attempt } from "@/types";
+
+type ResultSummary = {
+  correctCount?: number | null;
+  totalCount?: number | null;
+  rawScore?: number | null;
+  bandEstimate?: number | null;
+  summaryJson?: any;
+};
+
+type ResultDetail = {
+  id?: string;
+  questionId?: string;
+  qNo?: number | null;
+  isCorrect?: boolean | null;
+  userAnswer?: unknown;
+  correctAnswer?: unknown;
+  score?: number | null;
+  points?: number | null;
+  explanation?: string | null;
+  [key: string]: unknown;
+};
+
+type ResultPayload = {
+  attemptId?: string;
+  status?: string;
+  submittedAt?: string | null;
+  gradedAt?: string | null;
+  resultSummary?: ResultSummary | null;
+  detail?: ResultDetail[];
+  teacherReviews?: any[];
+  teacherSubmissions?: any[];
+  attempt?: Attempt;
+  test?: {
+    id?: string;
+    title?: string;
+    type?: string;
+  };
+  score?: any;
+  scores?: any;
+  result?: any;
+  summary?: any;
+  objective?: any;
+  writing?: any;
+  speaking?: any;
+  feedback?: any;
+  aiFeedback?: any;
+  teacherFeedback?: any;
+  overallBand?: number | string | null;
+  bandScore?: number | string | null;
+  totalCorrect?: number | null;
+  totalQuestions?: number | null;
+  correctCount?: number | null;
+  questionCount?: number | null;
+  durationSec?: number | null;
+  timeSpentSec?: number | null;
+  [key: string]: unknown;
+};
+
+function formatDateTime(value?: string | null) {
+  if (!value) return "—";
+
+  try {
+    return new Intl.DateTimeFormat("vi-VN", {
+      hour: "2-digit",
+      minute: "2-digit",
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    }).format(new Date(value));
+  } catch {
+    return value;
+  }
+}
+
+function formatDuration(seconds?: number | null) {
+  if (!seconds) return "—";
+
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+
+  if (h > 0) return `${h} giờ ${m} phút`;
+  if (m > 0) return `${m} phút ${s} giây`;
+  return `${s} giây`;
+}
+
+function pickNumber(...values: unknown[]) {
+  for (const value of values) {
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+
+    if (
+      typeof value === "string" &&
+      value.trim() !== "" &&
+      !Number.isNaN(Number(value))
+    ) {
+      return Number(value);
+    }
+  }
+
+  return null;
+}
+
+function pickText(...values: unknown[]) {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim()) return value;
+  }
+
+  return "";
+}
+
+function formatBand(value?: number | null) {
+  if (value === null || value === undefined || Number.isNaN(value)) return "—";
+  return Number(value).toFixed(1).replace(".0", "");
+}
+
+function statusLabel(status?: string | null) {
+  const map: Record<string, string> = {
+    IN_PROGRESS: "Đang làm",
+    SUBMITTED: "Đã nộp",
+    GRADING: "Đang chấm",
+    GRADED: "Đã chấm",
+    ERROR: "Lỗi",
+    EXPIRED: "Hết hạn",
+  };
+
+  return status ? map[status] || status : "Chưa rõ";
+}
+
+function getStatusTone(status?: string | null) {
+  if (status === "GRADED") return "success" as const;
+  if (status === "ERROR" || status === "EXPIRED") return "danger" as const;
+  if (status === "GRADING" || status === "SUBMITTED") return "warning" as const;
+  return "sage" as const;
+}
+
+function answerToText(value: unknown) {
+  if (value === null || value === undefined || value === "")
+    return "Chưa trả lời";
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean")
+    return String(value);
+  if (Array.isArray(value)) return value.join(", ");
+  return JSON.stringify(value);
+}
+
+function getOverallBand(result?: ResultPayload | null) {
+  return pickNumber(
+    result?.resultSummary?.bandEstimate,
+    result?.overallBand,
+    result?.bandScore,
+    result?.score?.overallBand,
+    result?.score?.bandScore,
+    result?.scores?.overallBand,
+    result?.scores?.bandScore,
+    result?.result?.overallBand,
+    result?.result?.bandScore,
+    result?.writing?.overallBand,
+    result?.speaking?.overallBand,
+  );
+}
+
+function getCorrectCount(result?: ResultPayload | null) {
+  return pickNumber(
+    result?.resultSummary?.correctCount,
+    result?.totalCorrect,
+    result?.correctCount,
+    result?.objective?.correctCount,
+    result?.objective?.totalCorrect,
+    result?.score?.correctCount,
+    result?.result?.correctCount,
+  );
+}
+
+function getQuestionCount(result?: ResultPayload | null) {
+  return pickNumber(
+    result?.resultSummary?.totalCount,
+    result?.totalQuestions,
+    result?.questionCount,
+    result?.objective?.questionCount,
+    result?.objective?.totalQuestions,
+    result?.score?.questionCount,
+    result?.result?.questionCount,
+  );
+}
+
+function getRawScore(result?: ResultPayload | null) {
+  return pickNumber(
+    result?.resultSummary?.rawScore,
+    result?.score?.rawScore,
+    result?.result?.rawScore,
+  );
+}
+
+function getSummaryFeedback(result?: ResultPayload | null) {
+  const summaryJson = result?.resultSummary?.summaryJson;
+
+  return pickText(
+    typeof summaryJson === "string" ? summaryJson : "",
+    summaryJson?.summary,
+    summaryJson?.feedback,
+    result?.feedback?.summary,
+    result?.aiFeedback?.summary,
+    result?.teacherFeedback?.summary,
+    result?.summary?.feedback,
+    result?.result?.feedback,
+    typeof result?.feedback === "string" ? result.feedback : "",
+  );
+}
+
+function getSkillScores(result?: ResultPayload | null) {
+  const scores = result?.scores || result?.score || result?.result || {};
+
+  return [
+    {
+      key: "reading",
+      label: "Reading",
+      icon: BookOpen,
+      value: pickNumber(
+        scores.reading,
+        scores.readingBand,
+        result?.objective?.readingBand,
+      ),
+      detail: pickText(scores.readingDetail, result?.objective?.readingDetail),
+      gradient: "from-cyan-500 to-sky-500",
+    },
+    {
+      key: "listening",
+      label: "Listening",
+      icon: Headphones,
+      value: pickNumber(
+        scores.listening,
+        scores.listeningBand,
+        result?.objective?.listeningBand,
+      ),
+      detail: pickText(
+        scores.listeningDetail,
+        result?.objective?.listeningDetail,
+      ),
+      gradient: "from-sky-500 to-blue-500",
+    },
+    {
+      key: "writing",
+      label: "Writing",
+      icon: PenLine,
+      value: pickNumber(
+        scores.writing,
+        scores.writingBand,
+        result?.writing?.overallBand,
+      ),
+      detail: pickText(scores.writingDetail, result?.writing?.summary),
+      gradient: "from-blue-500 to-indigo-500",
+    },
+    {
+      key: "speaking",
+      label: "Speaking",
+      icon: Mic,
+      value: pickNumber(
+        scores.speaking,
+        scores.speakingBand,
+        result?.speaking?.overallBand,
+      ),
+      detail: pickText(scores.speakingDetail, result?.speaking?.summary),
+      gradient: "from-teal-500 to-cyan-500",
+    },
+  ].filter((item) => item.value !== null || item.detail);
+}
+
+function getAttemptTitle(
+  attempt: Attempt | null,
+  result: ResultPayload | null,
+) {
+  return (
+    (attempt as any)?.test?.title ||
+    (attempt as any)?.testTitle ||
+    result?.test?.title ||
+    (result as any)?.testTitle ||
+    attempt?.testId ||
+    result?.attemptId ||
+    "Bài làm IELTS"
+  );
+}
+
+function getAccuracy(correct: number | null, total: number | null) {
+  if (correct === null || total === null || total <= 0) return null;
+  return Math.round((correct / total) * 100);
+}
+
+export default function Page({
+  params,
+}: {
+  params: {
+    attemptId: string;
+  };
+}) {
+  const attemptId = params.attemptId;
+
+  const [attempt, setAttempt] = useState<Attempt | null>(null);
+  const [result, setResult] = useState<ResultPayload | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  async function loadData() {
+    setLoading(true);
+    setError("");
+
+    try {
+      const [attemptData, resultData] = await Promise.all([
+        getAttemptDetail(attemptId),
+        getAttemptResult(attemptId),
+      ]);
+
+      setAttempt(attemptData);
+      setResult(resultData || {});
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Không thể tải kết quả bài làm",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [attemptId]);
+
+  const overallBand = useMemo(() => getOverallBand(result), [result]);
+  const correctCount = useMemo(() => getCorrectCount(result), [result]);
+  const questionCount = useMemo(() => getQuestionCount(result), [result]);
+  const rawScore = useMemo(() => getRawScore(result), [result]);
+  const skillScores = useMemo(() => getSkillScores(result), [result]);
+  const resultStatus = result?.status || attempt?.status;
+  const title = getAttemptTitle(attempt, result);
+
+  const submittedAt =
+    result?.submittedAt ||
+    (attempt as any)?.submittedAt ||
+    (attempt as any)?.submitted_at ||
+    result?.attempt?.submittedAt ||
+    null;
+
+  const gradedAt =
+    result?.gradedAt ||
+    (attempt as any)?.gradedAt ||
+    (attempt as any)?.graded_at ||
+    null;
+
+  const durationSec = pickNumber(
+    result?.durationSec,
+    result?.timeSpentSec,
+    result?.summary?.durationSec,
+    result?.result?.durationSec,
+  );
+
+  const summaryFeedback = getSummaryFeedback(result);
+  const accuracy = getAccuracy(correctCount, questionCount);
+  const details = result?.detail || [];
+
+  const isReady =
+    resultStatus === "GRADED" ||
+    attempt?.status === "GRADED" ||
+    overallBand !== null ||
+    correctCount !== null ||
+    Boolean(result?.resultSummary);
+
+  if (loading) {
+    return (
+      <div className="mx-auto grid min-h-[70vh] max-w-5xl place-items-center px-5">
+        <div className="text-center">
+          <div className="mx-auto grid h-16 w-16 place-items-center rounded-3xl border border-cyan-100 bg-cyan-50 text-cyan-700">
+            <Loader2 className="h-7 w-7 animate-spin" />
+          </div>
+          <p className="mt-4 text-sm font-semibold text-slate-500">
+            Đang tải kết quả bài làm...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="mx-auto grid min-h-[70vh] max-w-5xl place-items-center px-5">
+        <Card className="max-w-lg rounded-[34px] border border-white/70 bg-white/80 p-7 text-center shadow-[0_24px_80px_rgba(14,165,233,0.12)] backdrop-blur-2xl">
+          <AlertTriangle className="mx-auto h-12 w-12 text-rose-600" />
+          <h1 className="mt-4 font-serif text-3xl font-black text-slate-950">
+            Không thể tải kết quả
+          </h1>
+          <p className="mt-2 text-sm leading-6 text-slate-500">{error}</p>
+          <div className="mt-6 flex justify-center gap-3">
+            <Link href="/learner/attempts">
+              <Button variant="outline" className="rounded-2xl">
+                Quay lại lịch sử
+              </Button>
+            </Link>
+            <Button onClick={loadData} className="rounded-2xl">
+              <RefreshCcw className="h-4 w-4" />
+              Thử lại
+            </Button>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!isReady) {
+    return (
+      <div className="mx-auto grid min-h-[70vh] max-w-5xl place-items-center px-5">
+        <Card className="max-w-xl rounded-[34px] border border-white/70 bg-white/80 p-7 text-center shadow-[0_24px_80px_rgba(14,165,233,0.12)] backdrop-blur-2xl">
+          <Clock className="mx-auto h-12 w-12 text-cyan-700" />
+          <h1 className="mt-4 font-serif text-3xl font-black text-slate-950">
+            Kết quả chưa sẵn sàng
+          </h1>
+          <p className="mt-2 text-sm leading-6 text-slate-500">
+            Bài làm đang được xử lý. Bạn có thể theo dõi tiến độ chấm bài ở
+            trang trạng thái.
+          </p>
+          <Link href={`/learner/attempts/${attemptId}/status`}>
+            <Button className="mt-6 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white">
+              Xem trạng thái chấm bài
+            </Button>
+          </Link>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative mx-auto max-w-6xl space-y-7 px-5 py-8 md:py-12">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -left-32 -top-20 h-96 w-96 rounded-full bg-cyan-300/20 blur-3xl"
+      />
+
+      <Link
+        href="/learner/attempts"
+        className="relative inline-flex items-center gap-2 text-sm font-bold text-slate-500 transition hover:text-cyan-700"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Quay lại lịch sử làm bài
+      </Link>
+
+      <section className="relative overflow-hidden rounded-[36px] border border-white/70 bg-white/80 p-7 shadow-[0_30px_90px_rgba(14,165,233,0.13)] backdrop-blur-2xl md:p-10">
+        <div
+          aria-hidden="true"
+          className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-cyan-300/25 blur-3xl"
+        />
+
+        <div className="relative grid gap-7 lg:grid-cols-[1fr_280px] lg:items-center">
+          <div>
+            <Badge tone={getStatusTone(resultStatus)}>
+              {statusLabel(resultStatus)}
+            </Badge>
+
+            <h1 className="mt-5 max-w-3xl font-serif text-4xl font-black leading-tight text-slate-950 md:text-5xl">
+              {title}
+            </h1>
+
+            <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-500">
+              Kết quả tổng hợp từ điểm khách quan, AI và review giáo viên nếu
+              có.
+            </p>
+
+            <div className="mt-6 flex flex-wrap gap-3 text-sm font-semibold text-slate-500">
+              <span className="rounded-full border border-cyan-100 bg-cyan-50 px-4 py-2">
+                Nộp: {formatDateTime(submittedAt)}
+              </span>
+              <span className="rounded-full border border-blue-100 bg-blue-50 px-4 py-2">
+                Chấm: {formatDateTime(gradedAt)}
+              </span>
+            </div>
+          </div>
+
+          <div className="rounded-[32px] border border-cyan-100 bg-gradient-to-br from-cyan-50 via-white to-blue-50 p-6 text-center shadow-[0_18px_50px_rgba(14,165,233,0.12)]">
+            <p className="text-xs font-black uppercase tracking-[0.22em] text-cyan-700">
+              Overall band
+            </p>
+            <p className="mt-3 font-serif text-6xl font-black text-slate-950">
+              {formatBand(overallBand)}
+            </p>
+            <p className="mt-2 text-sm font-semibold text-slate-500">
+              {accuracy !== null
+                ? `${accuracy}% độ chính xác`
+                : "Band ước tính"}
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <div className="grid gap-5 md:grid-cols-4">
+        {[
+          {
+            label: "Câu đúng",
+            value:
+              correctCount !== null && questionCount !== null
+                ? `${correctCount}/${questionCount}`
+                : "—",
+            icon: CheckCircle2,
+            gradient: "from-cyan-500 to-sky-500",
+          },
+          {
+            label: "Raw score",
+            value: rawScore ?? "—",
+            icon: Target,
+            gradient: "from-sky-500 to-blue-500",
+          },
+          {
+            label: "Thời gian",
+            value: formatDuration(durationSec),
+            icon: Clock,
+            gradient: "from-blue-500 to-indigo-500",
+          },
+          {
+            label: "Chi tiết",
+            value: details.length,
+            icon: BarChart3,
+            gradient: "from-teal-500 to-cyan-500",
+          },
+        ].map((item) => {
+          const Icon = item.icon;
+
+          return (
+            <Card
+              key={item.label}
+              className="rounded-[30px] border border-white/70 bg-white/80 p-5 shadow-[0_18px_60px_rgba(14,165,233,0.10)] backdrop-blur-xl"
+            >
+              <div
+                className={`grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br ${item.gradient} text-white`}
+              >
+                <Icon className="h-5 w-5" />
+              </div>
+              <p className="mt-4 text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+                {item.label}
+              </p>
+              <p className="mt-2 font-serif text-3xl font-black text-slate-950">
+                {item.value}
+              </p>
+            </Card>
+          );
+        })}
+      </div>
+
+      {skillScores.length ? (
+        <Card className="rounded-[34px] border border-white/70 bg-white/80 shadow-[0_24px_80px_rgba(14,165,233,0.10)] backdrop-blur-2xl">
+          <CardContent className="p-6 md:p-8">
+            <h2 className="font-serif text-3xl font-black text-slate-950">
+              Điểm theo kỹ năng
+            </h2>
+
+            <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              {skillScores.map((item) => {
+                const Icon = item.icon;
+
+                return (
+                  <div
+                    key={item.key}
+                    className="rounded-[28px] border border-cyan-100 bg-white/75 p-5"
+                  >
+                    <div
+                      className={`grid h-11 w-11 place-items-center rounded-2xl bg-gradient-to-br ${item.gradient} text-white`}
+                    >
+                      <Icon className="h-5 w-5" />
+                    </div>
+                    <p className="mt-4 font-black text-slate-900">
+                      {item.label}
+                    </p>
+                    <p className="mt-2 font-serif text-4xl font-black text-cyan-700">
+                      {formatBand(item.value)}
+                    </p>
+                    {item.detail ? (
+                      <p className="mt-3 text-sm leading-6 text-slate-500">
+                        {item.detail}
+                      </p>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {summaryFeedback ? (
+        <Card className="rounded-[34px] border border-white/70 bg-white/80 shadow-[0_24px_80px_rgba(14,165,233,0.10)] backdrop-blur-2xl">
+          <CardContent className="p-6 md:p-8">
+            <div className="flex items-center gap-3">
+              <Sparkles className="h-6 w-6 text-cyan-700" />
+              <h2 className="font-serif text-3xl font-black text-slate-950">
+                Nhận xét tổng quan
+              </h2>
+            </div>
+
+            <p className="mt-4 text-sm leading-7 text-slate-600">
+              {summaryFeedback}
+            </p>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {details.length ? (
+        <Card className="rounded-[34px] border border-white/70 bg-white/80 shadow-[0_24px_80px_rgba(14,165,233,0.10)] backdrop-blur-2xl">
+          <CardContent className="p-6 md:p-8">
+            <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.22em] text-cyan-700">
+                  Answer detail
+                </p>
+                <h2 className="mt-2 font-serif text-3xl font-black text-slate-950">
+                  Chi tiết câu trả lời
+                </h2>
+              </div>
+
+              <Link href={`/learner/attempts/${attemptId}/review`}>
+                <Button
+                  variant="outline"
+                  className="rounded-2xl border-cyan-200 bg-white/80 text-sky-700"
+                >
+                  Xem review đầy đủ
+                </Button>
+              </Link>
+            </div>
+
+            <div className="mt-6 overflow-hidden rounded-[26px] border border-cyan-100">
+              <div className="hidden grid-cols-[80px_1fr_1fr_110px] border-b border-cyan-100 bg-cyan-50/70 px-5 py-3 text-xs font-black uppercase tracking-[0.16em] text-slate-500 md:grid">
+                <span>Câu</span>
+                <span>Trả lời</span>
+                <span>Đáp án</span>
+                <span>Kết quả</span>
+              </div>
+
+              <div className="divide-y divide-cyan-100 bg-white/70">
+                {details.slice(0, 20).map((item, index) => (
+                  <div
+                    key={item.id || item.questionId || index}
+                    className="grid gap-3 px-5 py-4 md:grid-cols-[80px_1fr_1fr_110px] md:items-center"
+                  >
+                    <span className="font-black text-slate-900">
+                      {item.qNo || index + 1}
+                    </span>
+
+                    <p className="text-sm font-semibold text-slate-600">
+                      {answerToText(item.userAnswer)}
+                    </p>
+
+                    <p className="text-sm font-semibold text-cyan-700">
+                      {answerToText(item.correctAnswer)}
+                    </p>
+
+                    <div>
+                      {item.isCorrect ? (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1.5 text-xs font-black text-emerald-700">
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                          Đúng
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-rose-100 bg-rose-50 px-3 py-1.5 text-xs font-black text-rose-700">
+                          <XCircle className="h-3.5 w-3.5" />
+                          Sai
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
+    </div>
+  );
+}

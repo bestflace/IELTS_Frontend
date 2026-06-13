@@ -1,0 +1,420 @@
+﻿
+src\app\admin\content-bank\page.t
+sx:25:    createHref: 
+"/admin/reading-sets/new",
+src\app\admin\imports\[jobId]\pag
+e.tsx:124:function JsonPreview({ 
+value }: { value: unknown }) {
+src\app\admin\imports\[jobId]\pag
+e.tsx:422:          <JsonPreview 
+value={resultJson} />
+src\app\admin\reading-sets\page.t
+sx:25:            <Link 
+href="/admin/reading-sets/new">
+src\app\admin\tests\[testId]\page
+.tsx:1:import { TestPreview } 
+from 
+"@/components/tests/TestPreview";
+src\app\admin\tests\[testId]\page
+.tsx:4:  return <TestPreview 
+testId={params.testId} />;
+src\app\admin\tests\[testId]\prev
+iew\page.tsx:1:import { 
+AdminLearnerPreview } from "@/com
+ponents/tests/AdminLearnerPreview
+";
+src\app\admin\tests\[testId]\prev
+iew\page.tsx:9:export default 
+function AdminTestPreviewPage({ 
+params }: PageProps) {
+src\app\admin\tests\[testId]\prev
+iew\page.tsx:10:  return 
+<AdminLearnerPreview 
+testId={params.testId} />;
+src\app\teacher\reports\page.tsx:
+194:function 
+groupReviewedByDate(items: 
+SubmissionItem[]) {
+src\app\teacher\reports\page.tsx:
+464:    () => groupReviewedByDate
+(reviewedSubmissions),
+src\components\attempts\listening
+\ListeningPracticeView.tsx:188:  
+            storageKey={`listenin
+g:${attemptId || "preview"}:part:
+${partNo}:questions`}
+src\components\attempts\reading\R
+eadingPassage.tsx:99:  const 
+annotationKey = 
+`reading-clean:${attemptId || 
+"preview"}:passage:${
+src\components\attempts\reading\R
+eadingPracticeView.tsx:121:      
+        
+storageKey={`reading:${attemptId 
+|| "preview"}:passage:${
+src\components\attempts\speaking\
+AudioPreview.tsx:7:export 
+function AudioPreview({ audioUrl 
+}: Props) {
+src\components\attempts\speaking\
+SpeakingRecorder.tsx:7:import { 
+AudioPreview } from "@/components
+/attempts/speaking/AudioPreview";
+src\components\attempts\speaking\
+SpeakingRecorder.tsx:316:        
+      <AudioPreview 
+audioUrl={audioUrl} />
+src\components\auth\AuthCard.modu
+le.css:190:.previewCard {
+src\components\auth\AuthCard.modu
+le.css:199:.previewCard::after {
+src\components\auth\AuthCard.modu
+le.css:205:  animation: 
+previewShine 5.5s ease-in-out 
+infinite;
+src\components\auth\AuthCard.modu
+le.css:278:@keyframes 
+previewShine {
+src\components\auth\AuthCard.modu
+le.css:322:  .previewCard::after,
+src\components\auth\AuthCard.tsx:
+95:            <div className={`$
+{styles.previewCard} 
+rounded-[26px] p-5`}>
+src\components\blogs\BlogEditor.t
+sx:40:function 
+slugPreview(title: string, 
+currentSlug?: string) {
+src\components\blogs\BlogEditor.t
+sx:87:  const previewSlug = 
+useMemo(
+src\components\blogs\BlogEditor.t
+sx:88:    () => 
+slugPreview(title, 
+initialData?.slug ?? undefined),
+src\components\blogs\BlogEditor.t
+sx:550:              <Input 
+value={previewSlug} readOnly />
+src\components\blogs\BlogEditor.t
+sx:552:                
+ieltsbf.com/blog/{previewSlug}
+src\components\blogs\BlogPreview.
+tsx:14:export function 
+BlogPreview({
+src\components\blogs\BlogPreview.
+tsx:39:            Preview
+src\components\content-bank\readi
+ng\ReadingSetDetail.tsx:293:     
+       <Link href={`/reading-sets
+/${readingSet.id}`}>
+src\components\content-bank\readi
+ng\ReadingSetDetail.tsx:296:     
+           Xem trang public
+src\components\content-bank\readi
+ng\ReadingSetForm.tsx:116:       
+ router.push(`/admin/reading-sets
+/${created.id}`);
+src\components\content-bank\readi
+ng\ReadingSetForm.tsx:217:       
+       Nếu có Passage HTML, màn 
+preview có thể render định dạng 
+đẹp hơn.
+src\components\content-bank\readi
+ng\ReadingSetTable.tsx:339:      
+                      <Link href=
+{`/admin/reading-sets/${item.id}`
+}>
+src\components\content-bank\readi
+ng\ReadingSetTable.tsx:429:      
+          <Link 
+href="/admin/reading-sets/new">
+src\components\imports\ImportJobD
+etailCard.tsx:85:function 
+JsonPreview({ value }: { value: 
+unknown }) {
+src\components\imports\ImportJobD
+etailCard.tsx:278:          
+<JsonPreview value={resultJson} 
+/>
+src\components\profile\AvatarUplo
+ader.tsx:77:            
+alt="Avatar preview"
+src\components\system-config\Publ
+icConfigPreview.tsx:13:export 
+function PublicConfigPreview({ 
+config }: Props) {
+src\components\system-config\Publ
+icConfigPreview.tsx:29:          
+    Public preview
+src\components\system-config\Syst
+emConfigForm.tsx:32:import { 
+PublicConfigPreview } from "@/com
+ponents/system-config/PublicConfi
+gPreview";
+src\components\system-config\Syst
+emConfigForm.tsx:272:      
+<PublicConfigPreview 
+config={draft} />
+src\components\teacher\TeacherDas
+hboardCards.tsx:61:  
+recentSubmissions?: 
+TeacherSubmissionPreview[];
+src\components\teacher\TeacherDas
+hboardCards.tsx:62:  
+latestSubmissions?: 
+TeacherSubmissionPreview[];
+src\components\teacher\TeacherDas
+hboardCards.tsx:63:  
+submissions?: 
+TeacherSubmissionPreview[];
+src\components\teacher\TeacherDas
+hboardCards.tsx:66:type 
+TeacherSubmissionPreview = {
+src\components\teacher\TeacherDas
+hboardCards.tsx:145:function 
+getStudentName(item: 
+TeacherSubmissionPreview) {
+src\components\teacher\TeacherDas
+hboardCards.tsx:154:function 
+getTestTitle(item: 
+TeacherSubmissionPreview) {
+src\components\teacher\TeacherDas
+hboardCards.tsx:171:function 
+getSubmissionHref(item: 
+TeacherSubmissionPreview) {
+src\components\tests\AdminLearner
+Preview.tsx:245:  if (type === 
+"READING_SET") return `/admin/rea
+ding-sets/${sourceId}`;
+src\components\tests\AdminLearner
+Preview.tsx:365:          Đang 
+tải preview...
+src\components\tests\AdminLearner
+Preview.tsx:380:          Không 
+thể tải preview
+src\components\tests\AdminLearner
+Preview.tsx:617:            Đây 
+là bản preview cho admin. Nội 
+dung bạn nhập ở đây không được
+src\components\tests\AdminLearner
+Preview.tsx:640:            
+Speaking preview
+src\components\tests\AdminLearner
+Preview.tsx:644:            
+preview này chỉ hiển thị prompt 
+để admin kiểm tra nội dung.
+src\components\tests\AdminLearner
+Preview.tsx:704:export function 
+AdminLearnerPreview({ testId }: 
+Props) {
+src\components\tests\AdminLearner
+Preview.tsx:711:  const 
+[previewAnswers, 
+setPreviewAnswers] = 
+useState<Record<string, 
+unknown>>(
+src\components\tests\AdminLearner
+Preview.tsx:812:    
+setPreviewAnswers((current) => ({
+src\components\tests\AdminLearner
+Preview.tsx:833:      
+<ErrorPanel message="Đề thi chưa 
+có section. Hãy thêm section 
+trước khi preview." />
+src\components\tests\AdminLearner
+Preview.tsx:854:              
+{getSectionLabel(activeSection)} 
+· Admin learner preview
+src\components\tests\AdminLearner
+Preview.tsx:880:            
+answers={previewAnswers}
+src\components\tests\AdminLearner
+Preview.tsx:948:                 
+ const answered = hasAnswer(previ
+ewAnswers[answerKey]);
+src\components\tests\AdminLearner
+Preview.tsx:975:            
+onClick={() => 
+setPreviewAnswers({})}
+src\components\tests\AdminLearner
+Preview.tsx:979:            
+Reset preview
+src\components\tests\RandomBuildF
+orm.tsx:13:import { 
+RandomBuildPreview } from "@/comp
+onents/tests/RandomBuildPreview";
+src\components\tests\RandomBuildF
+orm.tsx:488:        
+<RandomBuildPreview type={type} 
+/>
+src\components\tests\RandomBuildP
+review.tsx:61:export function 
+RandomBuildPreview({ type }: 
+Props) {
+src\components\tests\TestMetadata
+Form.tsx:374:                3. 
+Preview & publish
+src\components\tests\TestPreview.
+tsx:303:export function 
+TestPreview({ testId }: Props) {
+src\components\tests\TestPreview.
+tsx:415:        eyebrow="Admin / 
+Test preview"
+src\components\tests\TestPreview.
+tsx:545:              
+description="Bạn cần thêm ít 
+nhất một section trước khi 
+preview hoặc publish."
+src\components\tests\TestPreview.
+tsx:558:              Preview 
+checklist
+src\components\tests\TestPreview.
+tsx:626:              <Link href=
+{`/admin/tests/${test.id}/learner
+-preview`}>
+src\components\tests\TestSectionM
+anager.tsx:245:            <Link 
+href={`/admin/tests/${test.id}/pr
+eview`}>
+src\components\uploads\AdminMedia
+Library.tsx:136:function 
+MediaPreview({ file }: { file: 
+UploadedFile }) {
+src\components\uploads\AdminMedia
+Library.tsx:212:        
+<MediaPreview file={file} />
+src\components\uploads\AdminMedia
+Library.tsx:472:                
+Lọc, preview, copy URL hoặc xóa 
+file không còn dùng.
+src\features\screens\AdminManagem
+entPages.tsx:271:        
+description="Quản lý danh sách 
+đề luyện IELTS, trạng thái xuất 
+bản, cấu trúc section và các 
+thao tác preview trước khi đưa 
+ra cho học viên."
+src\features\screens\AdminManagem
+entPages.tsx:371:                
+  preview, publish hoặc xóa đề 
+tại đây.
+src\features\screens\AdminManagem
+entPages.tsx:553:                
+          <Link href={`/admin/tes
+ts/${test.id}/preview`}>
+src\features\screens\AdminManagem
+entPages.tsx:1383:               
+   Có thể để trống để backend tự 
+sinh slug. Preview:{" "}
+src\features\screens\AdminManagem
+entPages.tsx:1614:              
+editor markdown, preview và thao 
+tác publish/unpublish.
+src\features\screens\EditorWorkbe
+nchPage.tsx:16:  'test-preview': 
+'Xem trước đề thi',
+src\features\screens\EditorWorkbe
+nchPage.tsx:19:export function 
+EditorWorkbenchPage({ title, 
+description, backHref, mode = 
+'edit', kind = 'content' }: { 
+title: string; description?: 
+string; backHref: string; mode?: 
+'new' | 'edit' | 'preview' | 
+'errors'; kind?: string }) {
+src\features\screens\EditorWorkbe
+nchPage.tsx:22:  const isPreview 
+= kind === 'test-preview' || 
+mode === 'preview';
+src\features\screens\EditorWorkbe
+nchPage.tsx:27:        
+eyebrow={isPreview ? 'Xem trước' 
+: isRandom ? 'Random build' : 
+isSection ? 'Section manager' : 
+'Biên tập'}
+src\features\screens\EditorWorkbe
+nchPage.tsx:36:              <h2 
+className="font-serif text-2xl 
+font-bold">{isRandom ? 'Luật tạo 
+đề' : isSection ? 'Danh sách 
+section' : isPreview ? 'Bản xem 
+trước' : 'Thông tin đề thi'}</h2>
+src\features\screens\EditorWorkbe
+nchPage.tsx:42:          
+{isPreview ? (
+src\features\screens\EditorWorkbe
+nchPage.tsx:44:              <h3 
+className="font-serif text-3xl 
+font-bold">Cambridge IELTS 
+Practice Preview</h3>
+src\features\screens\EditorWorkbe
+nchPage.tsx:45:              <p 
+className="mt-2 text-sm 
+text-neutralText">Bố cục preview 
+sẽ render các section đã chọn: 
+Reading passage, Listening 
+audio, Writing prompt, Speaking 
+cue cards.</p>
+src\features\screens\EditorWorkbe
+nchPage.tsx:68:            
+{isRandom && <Button 
+variant="outline"><Shuffle 
+className="h-4 w-4" /> Preview 
+random build</Button>}
+src\features\screens\EditorWorkbe
+nchPage.tsx:70:            
+{!isPreview && <Button 
+variant="danger"><Trash2 
+className="h-4 w-4" /> 
+Xóa</Button>}
+src\features\screens\PublicDetail
+Page.tsx:72:  previewTitle: 
+string;
+src\features\screens\PublicDetail
+Page.tsx:83:    previewTitle: 
+"Reading passage & answer sheet",
+src\features\screens\PublicDetail
+Page.tsx:92:    previewTitle: 
+"Listening player & questions",
+src\features\screens\PublicDetail
+Page.tsx:101:    previewTitle: 
+"Writing prompt & editor",
+src\features\screens\PublicDetail
+Page.tsx:110:    previewTitle: 
+"Speaking prompts & recorder",
+src\features\screens\PublicDetail
+Page.tsx:476:                    
+  {config.previewTitle}
+src\lib\api\reading.api.ts:25:  a
+pi.get<ReadingSet>(`/reading-sets
+/${id}`);
+src\lib\api\reading.api.ts:31:  a
+pi.get<ReadingSet>(`/admin/readin
+g-sets/${id}`);
+src\lib\api\reading.api.ts:33:  a
+pi.patch<ReadingSet>(`/admin/read
+ing-sets/${id}`, data);
+src\lib\api\reading.api.ts:35:  a
+pi.delete(`/admin/reading-sets/${
+id}`);
+src\lib\api\reading.api.ts:37:  a
+pi.post(`/admin/reading-sets/${id
+}/publish`);
+src\lib\api\reading.api.ts:39:  a
+pi.post(`/admin/reading-sets/${id
+}/unpublish`);
+src\lib\api\reading.api.ts:41:  a
+pi.post<Question>(`/admin/reading
+-sets/${id}/questions`, data);
+src\lib\api\tests.api.ts:52:expor
+t type PreviewBuildInput = 
+CreateTestInput & {
+src\lib\api\tests.api.ts:157:expo
+rt const previewBuild = (data: 
+PreviewBuildInput) =>
+src\lib\api\tests.api.ts:158:  ap
+i.post<Test>("/admin/tests/previe
+w-build", {
+
+

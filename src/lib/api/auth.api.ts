@@ -1,0 +1,12 @@
+import { api } from './client';
+import type { AuthResponse, User } from '@/types';
+export type LoginInput = { email: string; password: string };
+export type RegisterInput = { fullName: string; email: string; password: string; confirmPassword: string };
+export const login = (data: LoginInput) => api.post<AuthResponse>('/auth/login', data);
+export const register = (data: RegisterInput) => api.post<AuthResponse>('/auth/register', data);
+export const refresh = () => api.post<{ accessToken: string }>('/auth/refresh', {});
+export const logout = () => api.post('/auth/logout');
+export const forgotPassword = (data:{email:string}) => api.post('/auth/forgot-password', data);
+export const verifyResetCode = (data:{email:string;code:string}) => api.post('/auth/reset-password/verify-code', data);
+export const resetPassword = (data:{email:string;code:string;newPassword:string;confirmPassword:string}) => api.post('/auth/reset-password', data);
+export const me = () => api.get<User>('/auth/me');
