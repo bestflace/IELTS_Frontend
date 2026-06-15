@@ -31,6 +31,61 @@ function formatDate(value?: string | null) {
     return value;
   }
 }
+function formatPracticeDuration(minutes: number | null | undefined) {
+  const totalMinutes = Math.max(0, Math.round(Number(minutes) || 0));
+
+  if (!totalMinutes) return "—";
+  if (totalMinutes < 60) return `${totalMinutes} phút`;
+
+  const hours = Math.floor(totalMinutes / 60);
+  const mins = totalMinutes % 60;
+
+  if (hours < 24) return mins ? `${hours} giờ ${mins} phút` : `${hours} giờ`;
+
+  const days = Math.floor(hours / 24);
+  const remainingHours = hours % 24;
+
+  return remainingHours ? `${days} ngày ${remainingHours} giờ` : `${days} ngày`;
+}
+
+function getAttemptDurationMinutes(attempt: AttemptRow) {
+  const direct = Number(
+    attempt.practiceMinutes ??
+      attempt.practice_minutes ??
+      attempt.durationMinutes ??
+      attempt.duration_minutes,
+  );
+
+  if (Number.isFinite(direct) && direct > 0) return direct;
+
+  const started =
+    attempt.startedAt ||
+    attempt.started_at ||
+    attempt.createdAt ||
+    attempt.created_at;
+  const ended =
+    attempt.submittedAt ||
+    attempt.submitted_at ||
+    attempt.gradedAt ||
+    attempt.graded_at ||
+    attempt.updatedAt ||
+    attempt.updated_at;
+
+  if (!started || !ended) return null;
+
+  const startTime = new Date(started).getTime();
+  const endTime = new Date(ended).getTime();
+
+  if (
+    !Number.isFinite(startTime) ||
+    !Number.isFinite(endTime) ||
+    endTime <= startTime
+  ) {
+    return null;
+  }
+
+  return Math.round((endTime - startTime) / 60000);
+}
 
 function getAttemptDate(attempt: AttemptRow) {
   return (
@@ -222,7 +277,9 @@ export function AttemptsAnalyticsTable({
                         {getAttemptTitle(attempt)}
                       </p>
                       <p className="mt-1 text-xs font-semibold text-slate-400">
-                        ID: {attempt.id}
+                        {formatPracticeDuration(
+                          getAttemptDurationMinutes(attempt),
+                        )}
                       </p>
                     </div>
 

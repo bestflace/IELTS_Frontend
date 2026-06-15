@@ -130,7 +130,7 @@ function getFixSuggestion(message?: string) {
   }
 
   if (text.includes("requires id and title")) {
-    return "Kiểm tra lại các cột bắt buộc id và title trong sheet chính. Header cột phải viết đúng chữ thường như backend yêu cầu.";
+    return "Kiểm tra lại các cột bắt buộc id và title trong sheet chính. Header cột phải viết đúng chữ thường.";
   }
 
   if (text.includes("requires id, title, prompt_text")) {

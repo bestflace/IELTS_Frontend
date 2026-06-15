@@ -168,8 +168,8 @@ export function ReadingQuestionManager({
 
         {isPublished ? (
           <div className="rounded-2xl border border-cyan-100 bg-amber-50 p-4 text-sm leading-6 text-amber-700">
-            Reading Set này đang được xuất bản. Nếu backend không cho sửa câu
-            hỏi đã publish, hãy gỡ xuất bản trước khi chỉnh sửa.
+            Reading Set này đang được xuất bản. Hãy gỡ xuất bản trước khi chỉnh
+            sửa.
           </div>
         ) : null}
 

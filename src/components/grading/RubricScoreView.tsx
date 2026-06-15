@@ -16,8 +16,8 @@ export type RubricViewItem = {
 function toScore(value?: number | string | null) {
   if (value === null || value === undefined || value === "") return null;
 
-  const number = Number(value);
-  return Number.isFinite(number) ? number : null;
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
 }
 
 export function RubricScoreView({
@@ -30,55 +30,58 @@ export function RubricScoreView({
   items: RubricViewItem[];
 }) {
   return (
-    <Card className="rounded-[28px] border border-line bg-surface">
+    <Card className="rounded-[34px] border border-white/70 bg-white/85 shadow-[0_24px_80px_rgba(14,165,233,0.10)] backdrop-blur-2xl">
       <CardHeader>
-        <p className="text-xs font-bold uppercase tracking-[.22em] text-sage">
+        <p className="text-xs font-black uppercase tracking-[.22em] text-cyan-700">
           Rubric
         </p>
-        <h2 className="mt-1 font-serif text-2xl font-bold text-ink">{title}</h2>
-        <p className="mt-1 text-sm leading-6 text-neutralText">{description}</p>
+        <h2 className="mt-2 font-serif text-3xl font-black text-slate-950">
+          {title}
+        </h2>
+        <p className="mt-2 text-sm leading-7 text-slate-500">{description}</p>
       </CardHeader>
 
       <CardContent className="space-y-4">
         {items.map((item) => {
           const Icon = item.icon || CheckCircle2;
           const score = toScore(item.score);
-          const width = score ? Math.min(100, (score / 9) * 100) : 0;
+          const width =
+            score === null ? 0 : Math.max(0, Math.min(100, (score / 9) * 100));
 
           return (
             <div
               key={item.key}
-              className="rounded-2xl border border-line bg-paper p-5"
+              className="rounded-[26px] border border-cyan-100 bg-white/75 p-5 shadow-sm"
             >
-              <div className="flex flex-col gap-4 md:flex-row md:items-center">
-                <div className="flex flex-1 items-start gap-3">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primarySoft">
-                    <Icon className="h-5 w-5 text-moss" />
+              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div className="flex gap-4">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-cyan-100 bg-cyan-50 text-cyan-700">
+                    <Icon className="h-5 w-5" />
                   </div>
 
                   <div>
-                    <h3 className="font-semibold text-ink">{item.title}</h3>
+                    <p className="font-black text-slate-950">{item.title}</p>
                     {item.description ? (
-                      <p className="mt-1 text-sm leading-6 text-neutralText">
+                      <p className="mt-1 text-sm leading-6 text-slate-500">
                         {item.description}
                       </p>
                     ) : null}
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-line bg-surface px-5 py-3 text-center">
-                  <p className="text-xs font-bold uppercase tracking-[.16em] text-neutralText">
+                <div className="w-full rounded-2xl border border-cyan-100 bg-cyan-50/40 px-5 py-3 text-center md:w-24">
+                  <p className="text-xs font-black uppercase tracking-[.18em] text-slate-400">
                     Điểm
                   </p>
-                  <p className="mt-1 font-serif text-2xl font-bold text-ink">
+                  <p className="mt-1 font-serif text-3xl font-black text-slate-950">
                     {score === null ? "—" : score.toFixed(1)}
                   </p>
                 </div>
               </div>
 
-              <div className="mt-4 h-2 overflow-hidden rounded-full bg-cream">
+              <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100">
                 <div
-                  className="h-full rounded-full bg-moss"
+                  className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-blue-500"
                   style={{ width: `${width}%` }}
                 />
               </div>

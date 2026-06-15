@@ -61,28 +61,40 @@ export function SkillBreakdownChart({
 
         <div className="mt-6 space-y-5">
           {data.map((item) => {
-            const percent = Math.max(
-              0,
-              Math.min(100, (item.average / 9) * 100),
-            );
+            const maxCount = Math.max(...data.map((entry) => entry.count), 1);
+            const percent =
+              item.displayAverage !== null && item.displayAverage !== undefined
+                ? Math.max(0, Math.min(100, (item.average / 9) * 100))
+                : Math.max(0, Math.min(100, (item.count / maxCount) * 100));
 
             return (
               <div
                 key={item.key}
-                className="rounded-3xl border border-cyan-100/70 bg-white/70 p-4"
+                className={
+                  item.count > 0
+                    ? "rounded-3xl border border-cyan-100/70 bg-white/70 p-4"
+                    : "rounded-3xl border border-slate-100 bg-slate-50/80 p-4"
+                }
               >
                 <div className="mb-3 flex items-center justify-between gap-4">
                   <div>
                     <p className="font-black text-slate-900">{item.label}</p>
                     <p className="mt-0.5 text-xs font-semibold text-slate-400">
-                      {item.gradedCount} bài có điểm / {item.count} bài luyện
+                      {item.count > 0
+                        ? `${item.gradedCount} bài có điểm / ${item.count} bài luyện`
+                        : "Chưa có lượt luyện kỹ năng này"}
                     </p>
                   </div>
 
                   <p
                     className={`font-serif text-3xl font-black ${item.text || "text-sky-700"}`}
                   >
-                    {formatBand(item.displayAverage)}
+                    {item.displayAverage !== null &&
+                    item.displayAverage !== undefined
+                      ? formatBand(item.displayAverage)
+                      : item.count > 0
+                        ? `${item.count} bài`
+                        : "—"}
                   </p>
                 </div>
 

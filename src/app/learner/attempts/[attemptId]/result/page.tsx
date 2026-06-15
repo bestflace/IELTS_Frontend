@@ -48,7 +48,26 @@ type ResultDetail = {
   score?: number | null;
   points?: number | null;
   explanation?: string | null;
+  skillKey?: string | null;
+  skill_key?: string | null;
+  skillLabel?: string | null;
+  skill_label?: string | null;
+  sectionId?: string | null;
+  section_id?: string | null;
+  sectionTitle?: string | null;
+  section_title?: string | null;
+  sectionType?: string | null;
+  section_type?: string | null;
+  sectionOrder?: number | null;
+  section_order?: number | null;
   [key: string]: unknown;
+};
+
+type DetailGroup = {
+  key: string;
+  label: string;
+  description: string;
+  details: ResultDetail[];
 };
 
 type ResultPayload = {
@@ -121,19 +140,40 @@ type ReviewQuestion = {
 };
 
 type ReviewSection = {
+  id?: string;
   sectionType?: string;
   section_type?: string;
+  sortOrder?: number | null;
+  sort_order?: number | null;
+  partLabel?: string | null;
+  part_label?: string | null;
   readingSet?: {
+    title?: string | null;
     questions?: ReviewQuestion[];
   } | null;
   reading_set?: {
+    title?: string | null;
     questions?: ReviewQuestion[];
   } | null;
   listeningSet?: {
+    title?: string | null;
     questions?: ReviewQuestion[];
   } | null;
   listening_set?: {
+    title?: string | null;
     questions?: ReviewQuestion[];
+  } | null;
+  writingTask?: {
+    title?: string | null;
+  } | null;
+  writing_task?: {
+    title?: string | null;
+  } | null;
+  speakingSet?: {
+    topic?: string | null;
+  } | null;
+  speaking_set?: {
+    topic?: string | null;
   } | null;
   [key: string]: unknown;
 };
@@ -399,6 +439,149 @@ function getSectionQuestions(section: ReviewSection): ReviewQuestion[] {
   return Array.isArray(questions) ? questions : [];
 }
 
+function normalizeDetailSkillKey(value?: unknown) {
+  const raw = String(value || "").toUpperCase();
+
+  if (raw.includes("READING")) return "READING";
+  if (raw.includes("LISTENING")) return "LISTENING";
+  if (raw.includes("WRITING")) return "WRITING";
+  if (raw.includes("SPEAKING")) return "SPEAKING";
+
+  return "DETAIL";
+}
+
+function getSectionSkillKey(section?: ReviewSection | null) {
+  if (!section) return "DETAIL";
+
+  return normalizeDetailSkillKey(
+    section.sectionType ||
+      section.section_type ||
+      (section.readingSet || section.reading_set
+        ? "READING"
+        : section.listeningSet || section.listening_set
+          ? "LISTENING"
+          : section.writingTask || section.writing_task
+            ? "WRITING"
+            : section.speakingSet || section.speaking_set
+              ? "SPEAKING"
+              : ""),
+  );
+}
+
+function getSkillDisplayName(skillKey?: string | null) {
+  const normalized = normalizeDetailSkillKey(skillKey);
+
+  if (normalized === "READING") return "Reading";
+  if (normalized === "LISTENING") return "Listening";
+  if (normalized === "WRITING") return "Writing";
+  if (normalized === "SPEAKING") return "Speaking";
+
+  return "Chi tiết";
+}
+
+function getSectionDetailTitle(section?: ReviewSection | null, index = 0) {
+  if (!section) return "Chi tiết câu trả lời";
+
+  const skill = getSectionSkillKey(section);
+  const title =
+    section.readingSet?.title ||
+    section.reading_set?.title ||
+    section.listeningSet?.title ||
+    section.listening_set?.title ||
+    section.writingTask?.title ||
+    section.writing_task?.title ||
+    section.speakingSet?.topic ||
+    section.speaking_set?.topic ||
+    section.partLabel ||
+    section.part_label ||
+    "";
+
+  return title || `${getSkillDisplayName(skill)} ${index + 1}`;
+}
+
+function getResultDetailSkillKey(item: ResultDetail) {
+  return normalizeDetailSkillKey(
+    item.skillKey ||
+      item.skill_key ||
+      item.skillLabel ||
+      item.skill_label ||
+      item.sectionType ||
+      item.section_type,
+  );
+}
+
+function getDetailGroupMeta(key: string) {
+  if (key === "READING") {
+    return {
+      label: "Reading",
+      description: "Các câu hỏi Reading trong bài làm",
+    };
+  }
+
+  if (key === "LISTENING") {
+    return {
+      label: "Listening",
+      description: "Các câu hỏi Listening trong bài làm",
+    };
+  }
+
+  if (key === "WRITING") {
+    return {
+      label: "Writing",
+      description: "Bài viết và nhận xét Writing",
+    };
+  }
+
+  if (key === "SPEAKING") {
+    return {
+      label: "Speaking",
+      description: "Bài nói và nhận xét Speaking",
+    };
+  }
+
+  return {
+    label: "Chi tiết",
+    description: "Chi tiết câu trả lời",
+  };
+}
+
+function groupResultDetails(details: ResultDetail[]): DetailGroup[] {
+  const groups = new Map<string, ResultDetail[]>();
+
+  details.forEach((item) => {
+    const key = getResultDetailSkillKey(item);
+    groups.set(key, [...(groups.get(key) || []), item]);
+  });
+
+  const order = ["READING", "LISTENING", "WRITING", "SPEAKING", "DETAIL"];
+
+  return Array.from(groups.entries())
+    .sort(([a], [b]) => {
+      const indexA = order.indexOf(a);
+      const indexB = order.indexOf(b);
+
+      return (indexA === -1 ? 99 : indexA) - (indexB === -1 ? 99 : indexB);
+    })
+    .map(([key, groupDetails]) => {
+      const meta = getDetailGroupMeta(key);
+
+      return {
+        key,
+        label: meta.label,
+        description: meta.description,
+        details: groupDetails,
+      };
+    });
+}
+
+function getDetailAnsweredLabel(details: ResultDetail[]) {
+  const answered = details.filter(
+    (item) => !isBlankAnswer(getDetailUserAnswer(item)),
+  ).length;
+
+  return `${answered}/${details.length} đã trả lời`;
+}
+
 function getReviewAnswerMaps(payload?: ReviewPayload | null) {
   const answers =
     payload?.savedAnswers ||
@@ -428,9 +611,15 @@ function buildDetailsFromReview(
 ): ResultDetail[] {
   const { byQuestionId, byQNo } = getReviewAnswerMaps(payload);
 
-  return getReviewSections(payload)
-    .flatMap(getSectionQuestions)
-    .map((question, index) => {
+  return getReviewSections(payload).flatMap((section, sectionIndex) => {
+    const skillKey = getSectionSkillKey(section);
+    const skillLabel = getSkillDisplayName(skillKey);
+    const sectionTitle = getSectionDetailTitle(section, sectionIndex);
+    const sectionOrder = Number(
+      section.sortOrder ?? section.sort_order ?? sectionIndex + 1,
+    );
+
+    return getSectionQuestions(section).map((question, index) => {
       const questionId = question.id ? String(question.id) : "";
       const qNo = question.qNo ?? question.q_no ?? index + 1;
       const answer =
@@ -455,8 +644,15 @@ function buildDetailsFromReview(
         score: answer?.score ?? answer?.pointsAwarded ?? null,
         points: question.points ?? null,
         explanation: answer?.explanation ?? question.explanation ?? null,
+        skillKey,
+        skillLabel,
+        sectionId: section.id || null,
+        sectionTitle,
+        sectionType: section.sectionType || section.section_type || null,
+        sectionOrder,
       };
     });
+  });
 }
 
 function getDetailKey(item: ResultDetail, index: number): string {
@@ -514,6 +710,42 @@ function mergeResultAndReviewDetails(
         (reviewItem as any).is_correct ??
         null,
       explanation: item.explanation || reviewItem.explanation || null,
+      skillKey:
+        item.skillKey ||
+        item.skill_key ||
+        reviewItem.skillKey ||
+        reviewItem.skill_key ||
+        null,
+      skillLabel:
+        item.skillLabel ||
+        item.skill_label ||
+        reviewItem.skillLabel ||
+        reviewItem.skill_label ||
+        null,
+      sectionId:
+        item.sectionId ||
+        item.section_id ||
+        reviewItem.sectionId ||
+        reviewItem.section_id ||
+        null,
+      sectionTitle:
+        item.sectionTitle ||
+        item.section_title ||
+        reviewItem.sectionTitle ||
+        reviewItem.section_title ||
+        null,
+      sectionType:
+        item.sectionType ||
+        item.section_type ||
+        reviewItem.sectionType ||
+        reviewItem.section_type ||
+        null,
+      sectionOrder:
+        item.sectionOrder ??
+        item.section_order ??
+        reviewItem.sectionOrder ??
+        reviewItem.section_order ??
+        null,
     };
   });
 }
@@ -685,6 +917,7 @@ export default function Page({
   const [attempt, setAttempt] = useState<Attempt | null>(null);
   const [result, setResult] = useState<ResultPayload | null>(null);
   const [review, setReview] = useState<ReviewPayload | null>(null);
+  const [activeDetailGroupKey, setActiveDetailGroupKey] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -759,6 +992,20 @@ export default function Page({
     () => mergeResultAndReviewDetails(result?.detail || [], reviewDetails),
     [result, reviewDetails],
   );
+  const detailGroups = useMemo(() => groupResultDetails(details), [details]);
+  const activeDetailGroup =
+    detailGroups.find((group) => group.key === activeDetailGroupKey) ||
+    detailGroups[0] ||
+    null;
+  const visibleDetails = activeDetailGroup?.details || details;
+
+  useEffect(() => {
+    if (!detailGroups.length) return;
+
+    if (!detailGroups.some((group) => group.key === activeDetailGroupKey)) {
+      setActiveDetailGroupKey(detailGroups[0].key);
+    }
+  }, [activeDetailGroupKey, detailGroups]);
 
   const isReady =
     resultStatus === "GRADED" ||
@@ -1015,6 +1262,12 @@ export default function Page({
                 <h2 className="mt-2 font-serif text-3xl font-black text-slate-950">
                   Chi tiết câu trả lời
                 </h2>
+                {activeDetailGroup ? (
+                  <p className="mt-1 text-sm font-semibold text-slate-500">
+                    Đang xem: {activeDetailGroup.label} ·{" "}
+                    {activeDetailGroup.details.length} câu
+                  </p>
+                ) : null}
               </div>
 
               <Link href={`/learner/attempts/${attemptId}/review`}>
@@ -1027,6 +1280,34 @@ export default function Page({
               </Link>
             </div>
 
+            {detailGroups.length > 1 ? (
+              <div className="mt-6 flex gap-2 overflow-x-auto rounded-[28px] border border-cyan-100 bg-cyan-50/50 p-2">
+                {detailGroups.map((group) => {
+                  const active = group.key === activeDetailGroup?.key;
+
+                  return (
+                    <button
+                      key={group.key}
+                      type="button"
+                      onClick={() => setActiveDetailGroupKey(group.key)}
+                      className={`min-w-[150px] rounded-2xl border px-4 py-3 text-left transition ${
+                        active
+                          ? "border-cyan-300 bg-white text-cyan-700 shadow-sm"
+                          : "border-transparent bg-white/40 text-slate-500 hover:border-cyan-200 hover:bg-white/80"
+                      }`}
+                    >
+                      <span className="block text-sm font-black">
+                        {group.label}
+                      </span>
+                      <span className="mt-1 block text-xs font-semibold">
+                        {getDetailAnsweredLabel(group.details)}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : null}
+
             <div className="mt-6 overflow-hidden rounded-[26px] border border-cyan-100">
               <div className="hidden grid-cols-[80px_1fr_1fr_110px] border-b border-cyan-100 bg-cyan-50/70 px-5 py-3 text-xs font-black uppercase tracking-[0.16em] text-slate-500 md:grid">
                 <span>Câu</span>
@@ -1036,7 +1317,7 @@ export default function Page({
               </div>
 
               <div className="divide-y divide-cyan-100 bg-white/70">
-                {details.map((item, index) => {
+                {visibleDetails.map((item, index) => {
                   const userAnswer = getDetailUserAnswer(item);
                   const correctAnswer = getDetailCorrectAnswer(item);
                   const unanswered = isBlankAnswer(userAnswer);
@@ -1049,7 +1330,7 @@ export default function Page({
 
                   return (
                     <div
-                      key={item.id || item.questionId || index}
+                      key={getDetailKey(item, index)}
                       className="grid gap-3 px-5 py-4 md:grid-cols-[80px_1fr_1fr_110px] md:items-center"
                     >
                       <span className="font-black text-slate-900">

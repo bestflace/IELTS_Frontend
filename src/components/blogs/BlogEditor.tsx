@@ -510,8 +510,7 @@ export function BlogEditor({ mode, initialData, onSaved }: Props) {
                 Immediately
               </div>
               <p className="mt-2 text-xs leading-5 text-neutralText">
-                Backend hiện chưa hỗ trợ lên lịch, chỉ hỗ trợ Draft và
-                Published.
+                Hiện chưa hỗ trợ lên lịch, chỉ hỗ trợ Draft và Published.
               </p>
             </div>
 

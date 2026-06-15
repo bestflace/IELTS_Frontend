@@ -70,17 +70,49 @@ function skillIcon(type?: string) {
   return BookOpen;
 }
 
+function getSectionCount(test: Test) {
+  return test.sections?.length || 0;
+}
+
+function testCountLabel(test: Test) {
+  const count = getSectionCount(test);
+
+  if (test.type === "WRITING") return `${count || 2} task`;
+  if (test.type === "SPEAKING") return `${count || 3} part`;
+  if (test.type === "LISTENING") return `${count || 4} section`;
+  if (test.type === "READING") return `${count || 3} passage`;
+  if (test.type === "FULL") return count ? `${count} phần` : "Full test";
+
+  return count ? `${count} phần` : "Theo cấu trúc đề";
+}
+
+function bandLabel(level?: number | string | null) {
+  if (level === null || level === undefined || level === "") {
+    return "Mọi band";
+  }
+
+  return `Band ${level}`;
+}
+
+function testCardAccent(type?: string) {
+  if (type === "LISTENING") return "from-sky-400/24 via-blue-300/12 to-white";
+  if (type === "WRITING") return "from-blue-400/24 via-indigo-300/12 to-white";
+  if (type === "SPEAKING") return "from-teal-400/24 via-cyan-300/12 to-white";
+  if (type === "READING") return "from-cyan-400/24 via-sky-300/12 to-white";
+  return "from-cyan-400/24 via-blue-300/12 to-white";
+}
+
 function TestCard({ test }: { test: Test }) {
   const Icon = skillIcon(test.type);
 
   return (
     <Link
       href={`/learner/tests/${test.id}`}
-      className="group relative overflow-hidden rounded-[30px] border border-cyan-100 bg-white/80 p-5 shadow-[0_18px_60px_rgba(14,165,233,0.08)] backdrop-blur-xl transition duration-300 hover:-translate-y-1 hover:border-cyan-300 hover:shadow-[0_28px_90px_rgba(14,165,233,0.18)]"
+      className="group relative overflow-hidden rounded-[30px] border border-white/80 bg-white/85 p-5 shadow-[0_18px_60px_rgba(14,165,233,0.10)] backdrop-blur-xl transition duration-300 hover:-translate-y-1 hover:border-cyan-300 hover:shadow-[0_28px_90px_rgba(14,165,233,0.18)]"
     >
       <div
         aria-hidden="true"
-        className="absolute -right-16 -top-16 h-44 w-44 rounded-full bg-cyan-300/18 blur-3xl transition group-hover:bg-blue-300/24"
+        className={`absolute -right-16 -top-16 h-44 w-44 rounded-full bg-gradient-to-br ${testCardAccent(test.type)} blur-3xl transition group-hover:scale-110`}
       />
 
       <div className="relative flex items-center justify-between gap-3">
@@ -89,8 +121,8 @@ function TestCard({ test }: { test: Test }) {
           {testTypeLabel(test.type)}
         </span>
 
-        <span className="rounded-full border border-sky-100 bg-white/80 px-3 py-1 text-xs font-bold text-slate-500">
-          Level {test.level ?? "—"}
+        <span className="rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-black text-blue-700">
+          {bandLabel(test.level)}
         </span>
       </div>
 
@@ -103,7 +135,7 @@ function TestCard({ test }: { test: Test }) {
       </p>
 
       <div className="relative mt-5 flex items-center justify-between border-t border-cyan-100/70 pt-4 text-xs font-bold text-slate-500">
-        <span>{test.sections?.length ?? 0} phần thi</span>
+        <span>{testCountLabel(test)}</span>
         <span className="inline-flex items-center gap-1 text-cyan-700 transition group-hover:gap-2">
           Vào chi tiết
           <ArrowRight className="h-3.5 w-3.5" />

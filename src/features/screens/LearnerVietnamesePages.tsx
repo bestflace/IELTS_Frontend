@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowRight,
   BarChart3,
@@ -38,7 +38,7 @@ import { useAuthStore } from "@/store/auth.store";
 import { displayName, type Test, type TestType, type Attempt } from "@/types";
 import { safeArray, formatDate } from "@/lib/utils";
 import { getTests } from "@/lib/api/tests.api";
-import { getMyAttempts } from "@/lib/api/attempts.api";
+import { getAttemptResult, getMyAttempts } from "@/lib/api/attempts.api";
 import { getLearnerOverview } from "@/lib/api/reports.api";
 
 type TestTab = "ALL" | TestType;
@@ -61,6 +61,31 @@ function SkillIcon({ type }: { type?: string }) {
           : BookOpen;
   return <Icon className="h-4 w-4" />;
 }
+
+function getSectionCount(test: Test) {
+  return test.sections?.length || 0;
+}
+
+function testCountLabel(test: Test) {
+  const count = getSectionCount(test);
+
+  if (test.type === "WRITING") return `${count || 2} task`;
+  if (test.type === "SPEAKING") return `${count || 3} part`;
+  if (test.type === "LISTENING") return `${count || 4} section`;
+  if (test.type === "READING") return `${count || 3} passage`;
+  if (test.type === "FULL") return count ? `${count} phần` : "Full test";
+
+  return count ? `${count} phần` : "Theo cấu trúc đề";
+}
+
+function bandLabel(level?: number | string | null) {
+  if (level === null || level === undefined || level === "") {
+    return "Mọi band";
+  }
+
+  return `Band ${level}`;
+}
+
 function attemptStatusLabel(status?: string) {
   const map: Record<string, string> = {
     IN_PROGRESS: "Đang làm",
@@ -132,7 +157,26 @@ export function LearnerVietnameseHome() {
 
   const completedCount =
     obj.completedTests ?? attempts.filter((a) => a.status === "GRADED").length;
-  const averageBand = obj.averageBand ?? "—";
+  const bands = attempts
+    .map((attempt) =>
+      Number(
+        (attempt as any).overallBand ??
+          (attempt as any).bandScore ??
+          (attempt as any).score ??
+          (attempt as any).result?.overallBand,
+      ),
+    )
+    .filter((value) => Number.isFinite(value));
+
+  const averageBand =
+    obj.averageBand ??
+    obj.average_band ??
+    (bands.length
+      ? bands.reduce((sum, value) => sum + value, 0) / bands.length
+      : null);
+  const bestBand =
+    obj.bestBand ?? obj.best_band ?? (bands.length ? Math.max(...bands) : null);
+
   const inProgressCount = attempts.filter(
     (a) => a.status === "IN_PROGRESS",
   ).length;
@@ -194,7 +238,11 @@ export function LearnerVietnameseHome() {
               </div>
 
               <div className="rounded-3xl border border-white/20 bg-white/15 p-4 shadow-[0_18px_40px_rgba(8,47,73,0.16)] backdrop-blur-xl">
-                <p className="text-3xl font-bold">{averageBand}</p>
+                <p className="text-3xl font-bold">
+                  {averageBand === null || averageBand === undefined
+                    ? "—"
+                    : Number(averageBand).toFixed(1).replace(".0", "")}
+                </p>
                 <p className="text-sm opacity-80">Band trung bình</p>
               </div>
             </div>
@@ -402,8 +450,8 @@ function TestCard({ test }: { test: Test }) {
         <Badge tone="sage" className="gap-1">
           <SkillIcon type={test.type} /> {test.type}
         </Badge>
-        <span className="text-xs text-slate-500">
-          Level {test.level ?? "—"}
+        <span className="rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-black text-blue-700">
+          {bandLabel(test.level)}
         </span>
       </div>
       <h3 className="font-serif text-xl font-bold leading-tight text-slate-950 group-hover:text-cyan-700">
@@ -413,7 +461,7 @@ function TestCard({ test }: { test: Test }) {
         {test.description || "Đề luyện thi IELTS đã được xuất bản."}
       </p>
       <div className="mt-4 flex items-center justify-between text-xs text-slate-500">
-        <span>{test.sections?.length ?? 0} phần thi</span>
+        <span>{testCountLabel(test)}</span>
         <span>Vào chi tiết →</span>
       </div>
     </Link>
@@ -624,10 +672,426 @@ export function LearnerProfileVietnamesePage() {
   );
 }
 
+function unwrapAttemptResultPayload(payload: unknown) {
+  if (!payload || typeof payload !== "object") return {};
+
+  const record = payload as Record<string, any>;
+
+  if (
+    record.data &&
+    typeof record.data === "object" &&
+    !Array.isArray(record.data)
+  ) {
+    return record.data as Record<string, any>;
+  }
+
+  return record;
+}
+
+function pickFirstValue(...values: unknown[]) {
+  for (const value of values) {
+    if (value !== null && value !== undefined && value !== "") {
+      return value;
+    }
+  }
+
+  return null;
+}
+
+function pickNumberValue(...values: unknown[]) {
+  const value = pickFirstValue(...values);
+
+  if (value === null) return null;
+
+  const numeric = Number(value);
+
+  return Number.isFinite(numeric) ? numeric : null;
+}
+
+function formatScoreValue(value: unknown): string | null {
+  if (value === null || value === undefined || value === "") return null;
+
+  const numeric = Number(value);
+
+  if (Number.isFinite(numeric)) {
+    return numeric.toFixed(1).replace(".0", "");
+  }
+
+  return String(value);
+}
+
+function formatBandScoreValue(value: unknown): string | null {
+  if (value === null || value === undefined || value === "") return null;
+
+  const numeric = Number(value);
+
+  if (Number.isFinite(numeric)) {
+    return numeric.toFixed(1);
+  }
+
+  return String(value);
+}
+
+function getCachedResultForAttempt(
+  attempt: Attempt,
+  cache: Record<string, Record<string, any>>,
+) {
+  return cache[attempt.id] || {};
+}
+
+function normalizeAttemptStatus(status?: string | null) {
+  return String(status || "").toUpperCase();
+}
+
+function getResultSummaryObject(...sources: any[]) {
+  for (const source of sources) {
+    if (!source || typeof source !== "object") continue;
+
+    const summary =
+      source.resultSummary ||
+      source.result_summary ||
+      source.summary ||
+      source.result?.resultSummary ||
+      source.result?.result_summary ||
+      source.result?.summary ||
+      source.objective?.resultSummary ||
+      source.objective?.result_summary ||
+      source.objective?.summary;
+
+    if (summary && typeof summary === "object") {
+      return summary;
+    }
+  }
+
+  return {};
+}
+
+function getObjectiveObject(...sources: any[]) {
+  for (const source of sources) {
+    if (!source || typeof source !== "object") continue;
+
+    const objective =
+      source.objective ||
+      source.result?.objective ||
+      source.score?.objective ||
+      source.scores?.objective;
+
+    if (objective && typeof objective === "object") {
+      return objective;
+    }
+  }
+
+  return {};
+}
+
+function getAttemptSkillForResult(attempt: Attempt) {
+  const raw = [
+    attempt.mode,
+    attempt.test?.type,
+    (attempt as any).testType,
+    (attempt as any).test_type,
+    (attempt as any).skill,
+    (attempt as any).sectionType,
+    (attempt as any).section_type,
+    (attempt as any).partLabel,
+    (attempt as any).part_label,
+    (attempt as any).part?.type,
+    (attempt as any).section?.type,
+  ]
+    .filter(Boolean)
+    .map((value) => String(value).toUpperCase())
+    .join(" ");
+
+  if (raw.includes("READING")) return "READING";
+  if (raw.includes("LISTENING")) return "LISTENING";
+  if (raw.includes("WRITING")) return "WRITING";
+  if (raw.includes("SPEAKING")) return "SPEAKING";
+
+  return "";
+}
+
+function isObjectiveAttempt(attempt: Attempt) {
+  const skill = getAttemptSkillForResult(attempt);
+
+  return skill === "READING" || skill === "LISTENING";
+}
+
+function getAttemptResultDisplay(
+  attempt: Attempt,
+  cache: Record<string, Record<string, any>>,
+) {
+  const score = getAttemptScoreText(attempt, cache);
+  const correctText = getAttemptCorrectText(attempt, cache);
+  const objective = isObjectiveAttempt(attempt);
+
+  if (objective && correctText) {
+    return {
+      main: correctText,
+      helper: score !== null ? score : "Số câu đúng",
+      loading: false,
+      empty: false,
+    };
+  }
+
+  if (score !== null) {
+    return {
+      main: score,
+      helper: correctText || "Điểm tổng quan",
+      loading: false,
+      empty: false,
+    };
+  }
+
+  if (correctText) {
+    return {
+      main: correctText,
+      helper: "Số câu đúng",
+      loading: false,
+      empty: false,
+    };
+  }
+
+  if (
+    normalizeAttemptStatus(attempt.status) === "GRADED" &&
+    needsResultHydration(attempt, cache)
+  ) {
+    return {
+      main: "Đang tải điểm...",
+      helper: "",
+      loading: true,
+      empty: false,
+    };
+  }
+
+  if (normalizeAttemptStatus(attempt.status) === "GRADED") {
+    return {
+      main: "Đã chấm",
+      helper: "Xem kết quả để xem chi tiết",
+      loading: false,
+      empty: false,
+    };
+  }
+
+  if (normalizeAttemptStatus(attempt.status) === "IN_PROGRESS") {
+    return {
+      main: "Đang làm",
+      helper: "",
+      loading: false,
+      empty: true,
+    };
+  }
+
+  if (
+    normalizeAttemptStatus(attempt.status) === "SUBMITTED" ||
+    normalizeAttemptStatus(attempt.status) === "GRADING"
+  ) {
+    return {
+      main: "Đang chấm",
+      helper: "",
+      loading: false,
+      empty: true,
+    };
+  }
+
+  return {
+    main: "Chưa có điểm",
+    helper: "",
+    loading: false,
+    empty: true,
+  };
+}
+
+function getAttemptScoreText(
+  attempt: Attempt,
+  cache: Record<string, Record<string, any>>,
+) {
+  const result = getCachedResultForAttempt(attempt, cache);
+  const resultSummary = getResultSummaryObject(attempt, result);
+  const objective = getObjectiveObject(attempt, result);
+
+  const score = pickFirstValue(
+    (attempt as any).overallBand,
+    (attempt as any).overall_band,
+    (attempt as any).bandScore,
+    (attempt as any).band_score,
+    (attempt as any).score,
+    (attempt as any).rawScore,
+    (attempt as any).raw_score,
+    (attempt as any).result?.overallBand,
+    (attempt as any).result?.overall_band,
+    (attempt as any).result?.bandScore,
+    (attempt as any).result?.band_score,
+    (attempt as any).result?.score,
+    (attempt as any).result?.rawScore,
+    (attempt as any).result?.raw_score,
+    (attempt as any).resultSummary?.bandEstimate,
+    (attempt as any).resultSummary?.overallBand,
+    (attempt as any).resultSummary?.overall_band,
+    (attempt as any).resultSummary?.bandScore,
+    (attempt as any).resultSummary?.band_score,
+    (attempt as any).resultSummary?.rawScore,
+    (attempt as any).resultSummary?.raw_score,
+    (attempt as any).resultSummary?.score,
+    (attempt as any).result_summary?.bandEstimate,
+    (attempt as any).result_summary?.band_estimate,
+    (attempt as any).result_summary?.overallBand,
+    (attempt as any).result_summary?.overall_band,
+    (attempt as any).result_summary?.bandScore,
+    (attempt as any).result_summary?.band_score,
+    (attempt as any).result_summary?.rawScore,
+    (attempt as any).result_summary?.raw_score,
+    (attempt as any).result_summary?.score,
+    result.overallBand,
+    result.overall_band,
+    result.bandScore,
+    result.band_score,
+    result.score,
+    result.rawScore,
+    result.raw_score,
+    result.result?.overallBand,
+    result.result?.overall_band,
+    result.result?.bandScore,
+    result.result?.band_score,
+    result.result?.score,
+    result.result?.rawScore,
+    result.result?.raw_score,
+    result.score?.overallBand,
+    result.score?.bandScore,
+    result.score?.rawScore,
+    result.scores?.overallBand,
+    result.scores?.bandScore,
+    result.scores?.rawScore,
+    objective.overallBand,
+    objective.overall_band,
+    objective.bandScore,
+    objective.band_score,
+    objective.rawScore,
+    objective.raw_score,
+    objective.score,
+    resultSummary.bandEstimate,
+    resultSummary.band_estimate,
+    resultSummary.overallBand,
+    resultSummary.overall_band,
+    resultSummary.bandScore,
+    resultSummary.band_score,
+    resultSummary.rawScore,
+    resultSummary.raw_score,
+    resultSummary.score,
+  );
+
+  return formatBandScoreValue(score);
+}
+
+function getAttemptCorrectText(
+  attempt: Attempt,
+  cache: Record<string, Record<string, any>>,
+) {
+  const result = getCachedResultForAttempt(attempt, cache);
+  const resultSummary = getResultSummaryObject(attempt, result);
+  const objective = getObjectiveObject(attempt, result);
+
+  const correct = pickNumberValue(
+    (attempt as any).correctCount,
+    (attempt as any).correct_count,
+    (attempt as any).totalCorrect,
+    (attempt as any).total_correct,
+    (attempt as any).result?.correctCount,
+    (attempt as any).result?.correct_count,
+    (attempt as any).result?.totalCorrect,
+    (attempt as any).result?.total_correct,
+    (attempt as any).resultSummary?.correctCount,
+    (attempt as any).resultSummary?.correct_count,
+    (attempt as any).resultSummary?.totalCorrect,
+    (attempt as any).resultSummary?.total_correct,
+    (attempt as any).result_summary?.correctCount,
+    (attempt as any).result_summary?.correct_count,
+    (attempt as any).result_summary?.totalCorrect,
+    (attempt as any).result_summary?.total_correct,
+    result.correctCount,
+    result.correct_count,
+    result.totalCorrect,
+    result.total_correct,
+    result.result?.correctCount,
+    result.result?.correct_count,
+    result.result?.totalCorrect,
+    result.result?.total_correct,
+    objective.correctCount,
+    objective.correct_count,
+    objective.totalCorrect,
+    objective.total_correct,
+    resultSummary.correctCount,
+    resultSummary.correct_count,
+    resultSummary.totalCorrect,
+    resultSummary.total_correct,
+  );
+
+  const total = pickNumberValue(
+    (attempt as any).questionCount,
+    (attempt as any).question_count,
+    (attempt as any).totalQuestions,
+    (attempt as any).total_questions,
+    (attempt as any).result?.questionCount,
+    (attempt as any).result?.question_count,
+    (attempt as any).result?.totalQuestions,
+    (attempt as any).result?.total_questions,
+    (attempt as any).resultSummary?.totalCount,
+    (attempt as any).resultSummary?.total_count,
+    (attempt as any).resultSummary?.questionCount,
+    (attempt as any).resultSummary?.question_count,
+    (attempt as any).resultSummary?.totalQuestions,
+    (attempt as any).resultSummary?.total_questions,
+    (attempt as any).result_summary?.totalCount,
+    (attempt as any).result_summary?.total_count,
+    (attempt as any).result_summary?.questionCount,
+    (attempt as any).result_summary?.question_count,
+    (attempt as any).result_summary?.totalQuestions,
+    (attempt as any).result_summary?.total_questions,
+    result.questionCount,
+    result.question_count,
+    result.totalQuestions,
+    result.total_questions,
+    result.result?.questionCount,
+    result.result?.question_count,
+    result.result?.totalQuestions,
+    result.result?.total_questions,
+    objective.questionCount,
+    objective.question_count,
+    objective.totalQuestions,
+    objective.total_questions,
+    resultSummary.totalCount,
+    resultSummary.total_count,
+    resultSummary.questionCount,
+    resultSummary.question_count,
+    resultSummary.totalQuestions,
+    resultSummary.total_questions,
+  );
+
+  if (correct === null || total === null || total <= 0) return null;
+
+  return `${correct}/${total} câu đúng`;
+}
+
+function needsResultHydration(
+  attempt: Attempt,
+  cache: Record<string, Record<string, any>>,
+) {
+  if (normalizeAttemptStatus(attempt.status) !== "GRADED") return false;
+
+  const score = getAttemptScoreText(attempt, cache);
+  const correctText = getAttemptCorrectText(attempt, cache);
+
+  if (score !== null || correctText) return false;
+
+  return !cache[attempt.id];
+}
+
 export function LearnerAttemptHistory() {
   const [search, setSearch] = useState("");
   const [mode, setMode] = useState<string>("ALL");
   const [status, setStatus] = useState<string>("ALL");
+  const [resultCache, setResultCache] = useState<
+    Record<string, Record<string, any>>
+  >({});
 
   const { data, loading, error } = useApiQuery(
     () =>
@@ -639,7 +1103,47 @@ export function LearnerAttemptHistory() {
     [mode, status],
   );
 
-  const attempts = safeArray<Attempt>(data);
+  const attempts = useMemo(() => safeArray<Attempt>(data), [data]);
+
+  useEffect(() => {
+    const targets = attempts
+      .filter((attempt) => needsResultHydration(attempt, resultCache))
+      .slice(0, 20);
+
+    if (!targets.length) return;
+
+    let mounted = true;
+
+    async function hydrateResults() {
+      const settled = await Promise.allSettled(
+        targets.map(async (attempt) => {
+          const result = await getAttemptResult(attempt.id);
+          return [attempt.id, unwrapAttemptResultPayload(result)] as const;
+        }),
+      );
+
+      if (!mounted) return;
+
+      setResultCache((current) => {
+        const next = { ...current };
+
+        settled.forEach((item) => {
+          if (item.status === "fulfilled") {
+            const [attemptId, result] = item.value;
+            next[attemptId] = result;
+          }
+        });
+
+        return next;
+      });
+    }
+
+    hydrateResults();
+
+    return () => {
+      mounted = false;
+    };
+  }, [attempts, resultCache]);
 
   const filtered = attempts.filter((attempt) => {
     const testTitle =
@@ -700,34 +1204,8 @@ export function LearnerAttemptHistory() {
     );
   }
 
-  function getScore(attempt: Attempt) {
-    return (
-      (attempt as any).overallBand ||
-      (attempt as any).bandScore ||
-      (attempt as any).score ||
-      (attempt as any).result?.overallBand ||
-      null
-    );
-  }
-
-  function getCorrectText(attempt: Attempt) {
-    const correct =
-      (attempt as any).correctCount ||
-      (attempt as any).totalCorrect ||
-      (attempt as any).result?.correctCount;
-
-    const total =
-      (attempt as any).questionCount ||
-      (attempt as any).totalQuestions ||
-      (attempt as any).result?.questionCount;
-
-    if (correct === undefined || correct === null || !total) return null;
-
-    return `${correct}/${total} câu đúng`;
-  }
-
   function renderPrimaryAction(attempt: Attempt) {
-    if (attempt.status === "IN_PROGRESS") {
+    if (normalizeAttemptStatus(attempt.status) === "IN_PROGRESS") {
       return (
         <Link href={`/learner/attempts/${attempt.id}/session`}>
           <Button size="sm">Tiếp tục</Button>
@@ -735,7 +1213,10 @@ export function LearnerAttemptHistory() {
       );
     }
 
-    if (attempt.status === "SUBMITTED" || attempt.status === "GRADING") {
+    if (
+      normalizeAttemptStatus(attempt.status) === "SUBMITTED" ||
+      normalizeAttemptStatus(attempt.status) === "GRADING"
+    ) {
       return (
         <Link href={`/learner/attempts/${attempt.id}/status`}>
           <Button size="sm" variant="secondary">
@@ -745,7 +1226,7 @@ export function LearnerAttemptHistory() {
       );
     }
 
-    if (attempt.status === "GRADED") {
+    if (normalizeAttemptStatus(attempt.status) === "GRADED") {
       return (
         <Link href={`/learner/attempts/${attempt.id}/result`}>
           <Button size="sm">Xem kết quả</Button>
@@ -871,8 +1352,7 @@ export function LearnerAttemptHistory() {
       ) : (
         <div className="space-y-4">
           {filtered.map((attempt) => {
-            const score = getScore(attempt);
-            const correctText = getCorrectText(attempt);
+            const resultDisplay = getAttemptResultDisplay(attempt, resultCache);
 
             return (
               <Card key={attempt.id} className="overflow-hidden">
@@ -898,7 +1378,6 @@ export function LearnerAttemptHistory() {
                       </h3>
 
                       <div className="mt-3 flex flex-wrap gap-4 text-sm text-slate-500">
-                        <span>Mã bài làm: {attempt.id}</span>
                         {(attempt as any).partLabel ||
                         (attempt as any).part_label ? (
                           <span>
@@ -931,34 +1410,34 @@ export function LearnerAttemptHistory() {
                             Kết quả
                           </p>
 
-                          {score !== null ? (
-                            <p className="mt-2 font-serif text-4xl font-bold text-cyan-700">
-                              {score}
-                            </p>
-                          ) : correctText ? (
-                            <p className="mt-2 font-serif text-3xl font-bold text-cyan-700">
-                              {correctText}
-                            </p>
-                          ) : attempt.status === "IN_PROGRESS" ? (
+                          {resultDisplay.empty ? (
                             <p className="mt-2 text-sm font-semibold text-slate-500">
-                              Đang làm bài
+                              {resultDisplay.main}
                             </p>
-                          ) : attempt.status === "SUBMITTED" ||
-                            attempt.status === "GRADING" ? (
+                          ) : resultDisplay.loading ? (
                             <p className="mt-2 text-sm font-semibold text-slate-500">
-                              Đang chờ kết quả
+                              {resultDisplay.main}
                             </p>
                           ) : (
-                            <p className="mt-2 text-sm font-semibold text-slate-500">
-                              Chưa có điểm
-                            </p>
+                            <>
+                              <p className="mt-2 text-xl font-black text-cyan-700">
+                                {resultDisplay.main}
+                              </p>
+
+                              {resultDisplay.helper ? (
+                                <p className="mt-1 text-xs font-semibold text-slate-500">
+                                  {resultDisplay.helper}
+                                </p>
+                              ) : null}
+                            </>
                           )}
                         </div>
 
                         <div className="flex flex-wrap gap-2">
                           {renderPrimaryAction(attempt)}
 
-                          {attempt.status === "GRADED" ? (
+                          {normalizeAttemptStatus(attempt.status) ===
+                          "GRADED" ? (
                             <Link
                               href={`/learner/attempts/${attempt.id}/review`}
                             >
@@ -970,7 +1449,7 @@ export function LearnerAttemptHistory() {
 
                           <Link href={`/learner/attempts/${attempt.id}`}>
                             <Button size="sm" variant="ghost">
-                              Mở bài làm
+                              Chi tiết
                             </Button>
                           </Link>
                         </div>

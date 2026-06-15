@@ -161,14 +161,26 @@ function getAttemptDate(attempt: AttemptRow) {
 }
 
 function normalizeSkill(attempt: AttemptRow): SkillKey | null {
-  const raw = String(
-    attempt.mode ||
-      attempt.test?.type ||
-      attempt.skill ||
-      attempt.partLabel ||
-      attempt.part_label ||
-      "",
-  ).toUpperCase();
+  const candidates = [
+    attempt.mode,
+    attempt.test?.type,
+    attempt.testType,
+    attempt.test_type,
+    attempt.skill,
+    attempt.sectionType,
+    attempt.section_type,
+    attempt.partLabel,
+    attempt.part_label,
+    attempt.teacherSubmission?.skill,
+    attempt.teacher_submission?.skill,
+    attempt.teacherSubmissions?.[0]?.skill,
+    attempt.teacher_submissions?.[0]?.skill,
+  ];
+
+  const raw = candidates
+    .filter(Boolean)
+    .map((value) => String(value).toUpperCase())
+    .join(" ");
 
   if (raw.includes("READING")) return "READING";
   if (raw.includes("LISTENING")) return "LISTENING";
@@ -290,6 +302,32 @@ function getAttemptTitle(attempt: AttemptRow) {
 function roundBand(value: number | null | undefined) {
   if (value === null || value === undefined || Number.isNaN(value)) return "—";
   return Number(value).toFixed(1).replace(".0", "");
+}
+function formatPracticeDuration(minutes: number | null | undefined) {
+  const totalMinutes = Math.max(0, Math.round(Number(minutes) || 0));
+
+  if (totalMinutes < 60) return `${totalMinutes} phút`;
+
+  const hours = Math.floor(totalMinutes / 60);
+  const mins = totalMinutes % 60;
+
+  if (hours < 24) {
+    return mins ? `${hours} giờ ${mins} phút` : `${hours} giờ`;
+  }
+
+  const days = Math.floor(hours / 24);
+  const remainingHours = hours % 24;
+
+  if (days < 365) {
+    return remainingHours
+      ? `${days} ngày ${remainingHours} giờ`
+      : `${days} ngày`;
+  }
+
+  const years = Math.floor(days / 365);
+  const remainingDays = days % 365;
+
+  return remainingDays ? `${years} năm ${remainingDays} ngày` : `${years} năm`;
 }
 
 function minutesFromAttempt(attempt: AttemptRow) {
@@ -519,8 +557,7 @@ export function ReportsPage({ title = "Tiến độ học tập" }: { title?: st
     },
     {
       label: "Thời gian luyện",
-      value: Math.round(totalPracticeMinutes),
-      suffix: "phút",
+      value: formatPracticeDuration(totalPracticeMinutes),
       icon: Clock3,
       helper: `${completionRate}% tỉ lệ hoàn tất`,
       gradient: "from-teal-500 to-cyan-500",

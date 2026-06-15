@@ -565,7 +565,7 @@ export default function Page({
       <section className="overflow-hidden rounded-[36px] border border-white/70 bg-white/80 shadow-[0_30px_90px_rgba(14,165,233,0.13)] backdrop-blur-2xl">
         <div className="grid gap-0 lg:grid-cols-[1fr_340px]">
           <div className="bg-gradient-to-br from-white via-cyan-50/40 to-blue-50/60 p-7 md:p-10">
-            <Badge tone="sage">Review chi tiết</Badge>
+            <Badge>Review chi tiết</Badge>
 
             <h1 className="mt-5 max-w-3xl font-serif text-4xl font-bold leading-tight text-slate-950 md:text-5xl">
               {title}
@@ -642,54 +642,50 @@ export default function Page({
         </div>
       </section>
 
-      <section className="grid gap-5 lg:grid-cols-[280px_1fr]">
-        <Card className="h-fit">
-          <CardHeader>
-            <h2 className="font-serif text-2xl font-bold text-slate-950">
-              Phần thi
-            </h2>
-          </CardHeader>
-
-          <CardContent className="space-y-2">
+      <section className="space-y-5">
+        <Card className="rounded-[34px] border border-white/70 bg-white/80 shadow-[0_24px_80px_rgba(14,165,233,0.10)] backdrop-blur-2xl">
+          <CardContent className="p-4">
             {sections.length === 0 ? (
               <p className="text-sm text-slate-500">
                 Không có section để review.
               </p>
             ) : (
-              sections.map((section, index) => {
-                const Icon = sectionIcon(section.sectionType);
-                const active = activeSectionIndex === index;
+              <div className="flex gap-2 overflow-x-auto">
+                {sections.map((section, index) => {
+                  const Icon = sectionIcon(section.sectionType);
+                  const active = activeSectionIndex === index;
 
-                return (
-                  <button
-                    key={section.id || index}
-                    type="button"
-                    onClick={() => setActiveSectionIndex(index)}
-                    className={`w-full rounded-2xl border p-4 text-left transition ${
-                      active
-                        ? "border-cyan-300 bg-cyan-50 text-cyan-700"
-                        : "border-cyan-100 bg-cyan-50/60 text-slate-500 hover:border-cyan-300/40"
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <Icon className="h-5 w-5" />
-                      <div>
-                        <p className="font-semibold">
-                          {sectionLabel(section, index)}
-                        </p>
-                        <p className="mt-1 text-xs">
-                          {getSectionTitle(section)}
-                        </p>
+                  return (
+                    <button
+                      key={section.id || index}
+                      type="button"
+                      onClick={() => setActiveSectionIndex(index)}
+                      className={`min-w-[180px] rounded-2xl border px-4 py-3 text-left transition ${
+                        active
+                          ? "border-cyan-300 bg-cyan-50 text-cyan-700 shadow-sm"
+                          : "border-cyan-100 bg-white/70 text-slate-500 hover:border-cyan-300/40 hover:bg-cyan-50/60"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <Icon className="h-5 w-5" />
+                        <div>
+                          <p className="font-black">
+                            {sectionLabel(section, index)}
+                          </p>
+                          <p className="mt-1 line-clamp-1 text-xs font-semibold">
+                            {getSectionTitle(section)}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  </button>
-                );
-              })
+                    </button>
+                  );
+                })}
+              </div>
             )}
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="rounded-[34px] border border-white/70 bg-white/80 shadow-[0_24px_80px_rgba(14,165,233,0.10)] backdrop-blur-2xl">
           <CardHeader>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
@@ -701,9 +697,7 @@ export default function Page({
                 </p>
               </div>
 
-              <Badge tone="sage">
-                {sectionLabel(activeSection, activeSectionIndex)}
-              </Badge>
+              <Badge>{sectionLabel(activeSection, activeSectionIndex)}</Badge>
             </div>
           </CardHeader>
 
@@ -856,7 +850,7 @@ function QuestionDetailModal({
   const explanation = answer?.explanation || question.explanation;
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-ink/45 p-4">
+    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 p-4">
       <div className="max-h-[90vh] w-full max-w-4xl overflow-hidden rounded-[2rem] border border-cyan-100 bg-white/90 shadow-[0_24px_80px_rgba(14,165,233,0.12)]">
         <div className="flex items-center justify-between border-b border-cyan-100 p-5">
           <div className="flex items-center gap-3">
@@ -878,7 +872,7 @@ function QuestionDetailModal({
         </div>
 
         <div className="max-h-[calc(90vh-96px)] overflow-y-auto p-6">
-          <Badge tone="sage">{sectionLabel(section)}</Badge>
+          <Badge>{sectionLabel(section)}</Badge>
 
           {question.instructionText ? (
             <p className="mt-4 text-xs font-semibold uppercase tracking-[.16em] text-cyan-700">
