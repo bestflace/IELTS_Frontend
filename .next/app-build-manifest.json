@@ -37,120 +37,50 @@
       "static/chunks/main-app.js",
       "static/chunks/app/auth/layout.js"
     ],
-    "/admin/dashboard/page": [
+    "/listening-sets/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/admin/dashboard/page.js"
+      "static/chunks/app/listening-sets/page.js"
     ],
-    "/admin/layout": [
+    "/listening-sets/[id]/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/admin/layout.js"
+      "static/chunks/app/listening-sets/[id]/page.js"
     ],
-    "/admin/users/page": [
+    "/learner/tests/[testId]/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/admin/users/page.js"
+      "static/chunks/app/learner/tests/[testId]/page.js"
     ],
-    "/admin/tests/page": [
+    "/learner/layout": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/admin/tests/page.js"
+      "static/chunks/app/learner/layout.js"
     ],
-    "/admin/content-bank/page": [
+    "/learner/dashboard/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/admin/content-bank/page.js"
+      "static/chunks/app/learner/dashboard/page.js"
     ],
-    "/admin/reading-sets/page": [
+    "/reading-sets/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/admin/reading-sets/page.js"
+      "static/chunks/app/reading-sets/page.js"
     ],
-    "/admin/reading-sets/new/page": [
+    "/writing-tasks/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/admin/reading-sets/new/page.js"
+      "static/chunks/app/writing-tasks/page.js"
     ],
-    "/admin/imports/page": [
+    "/writing-tasks/[id]/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/admin/imports/page.js"
+      "static/chunks/app/writing-tasks/[id]/page.js"
     ],
-    "/admin/uploads/page": [
+    "/learner/tests/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/admin/uploads/page.js"
-    ],
-    "/admin/imports/[jobId]/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/admin/imports/[jobId]/page.js"
-    ],
-    "/admin/imports/new/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/admin/imports/new/page.js"
-    ],
-    "/admin/reading-sets/[setId]/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/admin/reading-sets/[setId]/page.js"
-    ],
-    "/admin/tests/new/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/admin/tests/new/page.js"
-    ],
-    "/admin/listening-sets/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/admin/listening-sets/page.js"
-    ],
-    "/admin/writing-tasks/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/admin/writing-tasks/page.js"
-    ],
-    "/admin/listening-sets/[setId]/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/admin/listening-sets/[setId]/page.js"
-    ],
-    "/admin/writing-tasks/[taskId]/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/admin/writing-tasks/[taskId]/page.js"
-    ],
-    "/admin/speaking-sets/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/admin/speaking-sets/page.js"
-    ],
-    "/admin/speaking-sets/[setId]/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/admin/speaking-sets/[setId]/page.js"
-    ],
-    "/reading-sets/[id]/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/reading-sets/[id]/page.js"
-    ],
-    "/admin/tests/[testId]/sections/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/admin/tests/[testId]/sections/page.js"
-    ],
-    "/admin/tests/[testId]/preview/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/admin/tests/[testId]/preview/page.js"
-    ],
-    "/admin/reports/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/admin/reports/page.js"
+      "static/chunks/app/learner/tests/page.js"
     ]
   }
 }

@@ -1,11 +1,12 @@
 {
-  "/admin/reading-sets/[setId]/page": "app/admin/reading-sets/[setId]/page.js",
-  "/admin/reading-sets/page": "app/admin/reading-sets/page.js",
-  "/admin/dashboard/page": "app/admin/dashboard/page.js",
-  "/admin/reports/page": "app/admin/reports/page.js",
-  "/admin/content-bank/page": "app/admin/content-bank/page.js",
-  "/admin/listening-sets/page": "app/admin/listening-sets/page.js",
-  "/admin/tests/page": "app/admin/tests/page.js",
-  "/admin/tests/[testId]/preview/page": "app/admin/tests/[testId]/preview/page.js",
-  "/admin/tests/[testId]/sections/page": "app/admin/tests/[testId]/sections/page.js"
+  "/page": "app/page.js",
+  "/listening-sets/page": "app/listening-sets/page.js",
+  "/listening-sets/[id]/page": "app/listening-sets/[id]/page.js",
+  "/reading-sets/page": "app/reading-sets/page.js",
+  "/writing-tasks/page": "app/writing-tasks/page.js",
+  "/writing-tasks/[id]/page": "app/writing-tasks/[id]/page.js",
+  "/auth/login/page": "app/auth/login/page.js",
+  "/learner/tests/[testId]/page": "app/learner/tests/[testId]/page.js",
+  "/learner/dashboard/page": "app/learner/dashboard/page.js",
+  "/learner/tests/page": "app/learner/tests/page.js"
 }

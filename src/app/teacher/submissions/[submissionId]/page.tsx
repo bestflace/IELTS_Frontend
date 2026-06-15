@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { FilePenLine, Sparkles } from "lucide-react";
 
+import { DiscussionPanel } from "@/components/comments/DiscussionPanel";
 import { Button } from "@/components/common/Button";
 import { Card, CardContent } from "@/components/common/Card";
 import { ErrorState, LoadingState } from "@/components/common/States";
@@ -13,6 +14,18 @@ import { SubmissionDetailHeader } from "@/components/teacher/SubmissionDetailHea
 import { WritingSubmissionViewer } from "@/components/teacher/WritingSubmissionViewer";
 import { getErrorMessage } from "@/lib/api/client";
 import { getTeacherSubmission } from "@/lib/api/teacher.api";
+
+function getAttemptId(submission: any) {
+  return (
+    submission?.attemptId ||
+    submission?.attempt_id ||
+    submission?.attempt?.id ||
+    submission?.attempts?.id ||
+    submission?.attemptSubmission?.attemptId ||
+    submission?.attempt_submission?.attempt_id ||
+    ""
+  );
+}
 
 export default function TeacherSubmissionDetailPage({
   params,
@@ -43,6 +56,18 @@ export default function TeacherSubmissionDetailPage({
     loadSubmission();
   }, [loadSubmission]);
 
+  useEffect(() => {
+    if (!submission || window.location.hash !== "#discussion") return;
+
+    const timer = window.setTimeout(() => {
+      document
+        .getElementById("discussion")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 120);
+
+    return () => window.clearTimeout(timer);
+  }, [submission]);
+
   if (loading) {
     return <LoadingState label="Đang tải bài làm..." />;
   }
@@ -61,6 +86,7 @@ export default function TeacherSubmissionDetailPage({
   const reviewHref = isSpeaking
     ? `/teacher/submissions/${submissionId}/speaking-review`
     : `/teacher/submissions/${submissionId}/writing-review`;
+  const attemptId = getAttemptId(submission);
 
   return (
     <div className="relative space-y-6">
@@ -124,6 +150,22 @@ export default function TeacherSubmissionDetailPage({
           </Card>
         </aside>
       </div>
+
+      <section id="discussion" className="scroll-mt-28">
+        {attemptId ? (
+          <DiscussionPanel
+            attemptId={attemptId}
+            title="Trao đổi về bài làm"
+            description="Xem và phản hồi các câu hỏi, trao đổi của học viên dưới bài làm này."
+          />
+        ) : (
+          <Card className="rounded-[36px] border border-white/70 bg-white/80 shadow-[0_30px_90px_rgba(14,165,233,0.12)] backdrop-blur-2xl">
+            <CardContent className="p-6 text-sm text-slate-500">
+              Không tìm thấy mã attempt để tải phần trao đổi.
+            </CardContent>
+          </Card>
+        )}
+      </section>
     </div>
   );
 }

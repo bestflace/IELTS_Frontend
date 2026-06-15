@@ -467,6 +467,18 @@ export default function Page({
     loadData();
   }, [attemptId]);
 
+  useEffect(() => {
+    if (loading || window.location.hash !== "#discussion") return;
+
+    const timer = window.setTimeout(() => {
+      document
+        .getElementById("discussion")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 120);
+
+    return () => window.clearTimeout(timer);
+  }, [loading]);
+
   const sections = review?.snapshot?.sections || [];
   const activeSection = sections[activeSectionIndex] || sections[0];
   const questions = getQuestions(activeSection);
@@ -808,11 +820,13 @@ export default function Page({
           )}
         </section>
       ) : null}
-      <DiscussionPanel
-        attemptId={attemptId}
-        title="Trao đổi về bài làm"
-        description="Nếu còn thắc mắc về điểm, đáp án hoặc nhận xét, bạn có thể gửi câu hỏi cho giáo viên tại đây."
-      />
+      <section id="discussion" className="scroll-mt-28">
+        <DiscussionPanel
+          attemptId={attemptId}
+          title="Trao đổi về bài làm"
+          description="Nếu còn thắc mắc về điểm, đáp án hoặc nhận xét, bạn có thể gửi câu hỏi cho giáo viên tại đây."
+        />
+      </section>
       {selectedQuestion ? (
         <QuestionDetailModal
           question={selectedQuestion.question}

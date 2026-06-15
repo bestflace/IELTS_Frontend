@@ -11,6 +11,8 @@ import {
   Search,
   ShieldAlert,
   ExternalLink,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 
 import { Button } from "@/components/common/Button";
@@ -32,6 +34,8 @@ import {
 } from "@/lib/api/comments.api";
 
 type CommentStatus = "ACTIVE" | "HIDDEN" | "DELETED" | string;
+
+const PAGE_SIZE_OPTIONS = [5, 10, 15, 20] as const;
 
 type CommentAuthor = {
   id?: string;
@@ -173,6 +177,10 @@ function getSubmissionId(comment: CommentRow) {
     (comment as any).submissionId ||
     (comment as any).submission_id ||
     (comment as any).submission?.id ||
+    (comment as any).attempt?.teacherSubmissions?.[0]?.id ||
+    (comment as any).attempt?.teacher_submissions?.[0]?.id ||
+    (comment as any).attempts?.teacherSubmissions?.[0]?.id ||
+    (comment as any).attempts?.teacher_submissions?.[0]?.id ||
     ""
   );
 }
@@ -180,6 +188,9 @@ export default function AdminCommentsPage() {
   const [comments, setComments] = useState<CommentRow[]>([]);
   const [keyword, setKeyword] = useState("");
   const [status, setStatus] = useState("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] =
+    useState<(typeof PAGE_SIZE_OPTIONS)[number]>(10);
   const [loading, setLoading] = useState(true);
   const [actionLoadingId, setActionLoadingId] = useState("");
   const [replyingId, setReplyingId] = useState("");
@@ -214,7 +225,7 @@ export default function AdminCommentsPage() {
 
     return comments.filter((comment) => {
       const matchesKeyword = normalized
-        ? `${getAuthorName(comment)} ${getContent(comment)} ${getAttemptId(comment)} ${getTestTitle(comment)}`
+        ? `${getAuthorName(comment)} ${getContent(comment)} ${getTestTitle(comment)}`
             .toLowerCase()
             .includes(normalized)
         : true;
@@ -224,6 +235,22 @@ export default function AdminCommentsPage() {
       return matchesKeyword && matchesStatus;
     });
   }, [comments, keyword, status]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [keyword, status, pageSize]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredComments.length / pageSize));
+  const safePage = Math.min(page, totalPages);
+
+  const paginatedComments = filteredComments.slice(
+    (safePage - 1) * pageSize,
+    safePage * pageSize,
+  );
+
+  function goToPage(nextPage: number) {
+    setPage(Math.min(Math.max(1, nextPage), totalPages));
+  }
 
   const stats = useMemo(() => {
     return {
@@ -351,7 +378,7 @@ export default function AdminCommentsPage() {
       </div>
 
       <Card className="rounded-[34px] border border-white/70 bg-white/80 shadow-[0_24px_80px_rgba(14,165,233,0.10)] backdrop-blur-2xl">
-        <CardHeader>
+        <CardHeader className="bg-gradient-to-r from-white/90 via-cyan-50/60 to-blue-50/60">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <p className="text-xs font-black uppercase tracking-[.22em] text-cyan-700">
@@ -366,25 +393,39 @@ export default function AdminCommentsPage() {
               </p>
             </div>
 
-            <div className="grid w-full gap-3 lg:w-[660px] lg:grid-cols-[1fr_220px]">
+            <div className="grid w-full gap-3 lg:w-[820px] lg:grid-cols-[1fr_200px_150px]">
               <div className="relative">
                 <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-slate-500" />
                 <Input
                   value={keyword}
                   onChange={(event) => setKeyword(event.target.value)}
                   className="pl-9"
-                  placeholder="Tìm theo nội dung, người bình luận hoặc mã bài làm..."
+                  placeholder="Tìm theo nội dung, người bình luận hoặc tên bài làm..."
                 />
               </div>
 
               <select
                 value={status}
                 onChange={(event) => setStatus(event.target.value)}
-                className="h-11 w-full rounded-xl border border-cyan-100 bg-white/80 px-3 text-sm text-slate-950 outline-none transition focus:border-cyan-300 focus:ring-2 focus:ring-cyan-100"
+                className="h-11 w-full rounded-2xl border border-cyan-100 bg-white/90 px-3 text-sm font-semibold text-slate-700 outline-none shadow-sm transition focus:border-cyan-300 focus:ring-4 focus:ring-cyan-100/80"
               >
                 <option value="">Tất cả trạng thái</option>
                 <option value="ACTIVE">Đang hiển thị</option>
                 <option value="HIDDEN">Đã ẩn</option>
+              </select>
+
+              <select
+                value={pageSize}
+                onChange={(event) =>
+                  setPageSize(Number(event.target.value) as typeof pageSize)
+                }
+                className="h-11 w-full rounded-2xl border border-cyan-100 bg-white/90 px-3 text-sm font-semibold text-slate-700 outline-none shadow-sm transition focus:border-cyan-300 focus:ring-4 focus:ring-cyan-100/80"
+              >
+                {PAGE_SIZE_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {option} / trang
+                  </option>
+                ))}
               </select>
             </div>
           </div>
@@ -392,124 +433,167 @@ export default function AdminCommentsPage() {
 
         <CardContent>
           {filteredComments.length ? (
-            <div className="space-y-3">
-              {filteredComments.map((comment) => {
-                const hidden = comment.status === "HIDDEN";
-                const attemptId = getAttemptId(comment);
-                const submissionId = getSubmissionId(comment);
-                return (
-                  <div
-                    key={comment.id}
-                    className={`rounded-2xl border border-cyan-100 p-5 ${
-                      hidden ? "bg-cyan-50/60" : "bg-cyan-50/70"
-                    }`}
-                  >
-                    <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span
-                            className={`rounded-full border px-3 py-1 text-xs font-semibold ${getStatusClass(
-                              comment.status,
-                            )}`}
-                          >
-                            {getStatusText(comment.status)}
-                          </span>
-
-                          <span className="rounded-full border border-cyan-100 bg-white/80 px-3 py-1 text-xs font-semibold text-slate-500">
-                            {getAuthorRole(comment)}
-                          </span>
-
-                          <span className="text-xs text-slate-500">
-                            {formatDate(
-                              comment.createdAt || comment.created_at,
-                            )}
-                          </span>
-                        </div>
-
-                        <h3 className="mt-3 font-semibold text-slate-950">
-                          {getAuthorName(comment)}
-                        </h3>
-
-                        <p className="mt-1 text-xs font-semibold text-cyan-700">
-                          {getTestTitle(comment)}
-                        </p>
-
-                        <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-slate-500">
-                          {getContent(comment) || "Không có nội dung."}
-                        </p>
-
-                        {attemptId ? (
-                          <div className="mt-4 flex flex-wrap items-center gap-3">
-                            <span className="rounded-xl border border-cyan-100 bg-white/80 px-3 py-2 text-xs font-semibold text-slate-500">
-                              Attempt: {attemptId}
+            <>
+              <div className="space-y-3">
+                {paginatedComments.map((comment) => {
+                  const hidden = comment.status === "HIDDEN";
+                  const submissionId = getSubmissionId(comment);
+                  return (
+                    <div
+                      key={comment.id}
+                      className={`rounded-[28px] border p-5 shadow-sm backdrop-blur-xl transition hover:-translate-y-0.5 ${
+                        hidden
+                          ? "border-amber-100 bg-amber-50/70"
+                          : "border-cyan-100 bg-white/80"
+                      }`}
+                    >
+                      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span
+                              className={`rounded-full border px-3 py-1 text-xs font-semibold ${getStatusClass(
+                                comment.status,
+                              )}`}
+                            >
+                              {getStatusText(comment.status)}
                             </span>
 
-                            {submissionId ? (
+                            <span className="rounded-full border border-cyan-100 bg-white/80 px-3 py-1 text-xs font-semibold text-slate-500">
+                              {getAuthorRole(comment)}
+                            </span>
+
+                            <span className="text-xs text-slate-500">
+                              {formatDate(
+                                comment.createdAt || comment.created_at,
+                              )}
+                            </span>
+                          </div>
+
+                          <h3 className="mt-3 font-semibold text-slate-950">
+                            {getAuthorName(comment)}
+                          </h3>
+
+                          <p className="mt-1 text-xs font-semibold text-cyan-700">
+                            {getTestTitle(comment)}
+                          </p>
+
+                          <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-slate-500">
+                            {getContent(comment) || "Không có nội dung."}
+                          </p>
+
+                          {submissionId ? (
+                            <div className="mt-4 flex flex-wrap items-center gap-3">
                               <Link href={`/admin/submissions/${submissionId}`}>
-                                <Button size="sm" variant="ghost">
+                                <Button size="sm" variant="outline">
                                   <ExternalLink className="h-4 w-4" />
                                   Mở bài làm
                                 </Button>
                               </Link>
-                            ) : null}
-                          </div>
-                        ) : null}
+                            </div>
+                          ) : null}
 
-                        {replyingId === comment.id ? (
-                          <div className="mt-4 rounded-[26px] border border-cyan-100 bg-white/90 shadow-sm backdrop-blur-xl p-4">
-                            <CommentForm
-                              loading={replyLoadingId === comment.id}
-                              submitLabel="Gửi phản hồi"
-                              placeholder="Nhập phản hồi của quản trị viên..."
-                              onSubmit={(content) =>
-                                handleReply(comment, content)
-                              }
-                            />
-                          </div>
-                        ) : null}
-                      </div>
+                          {replyingId === comment.id ? (
+                            <div className="mt-4 rounded-[26px] border border-cyan-100 bg-white/90 shadow-sm backdrop-blur-xl p-4">
+                              <CommentForm
+                                loading={replyLoadingId === comment.id}
+                                submitLabel="Gửi phản hồi"
+                                placeholder="Nhập phản hồi của quản trị viên..."
+                                onSubmit={(content) =>
+                                  handleReply(comment, content)
+                                }
+                              />
+                            </div>
+                          ) : null}
+                        </div>
 
-                      <div className="flex shrink-0 flex-wrap gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() =>
-                            setReplyingId((current) =>
-                              current === comment.id ? "" : comment.id,
-                            )
-                          }
-                        >
-                          <MessageCircleReply className="h-4 w-4" />
-                          Trả lời
-                        </Button>
-
-                        {hidden ? (
+                        <div className="flex shrink-0 flex-wrap gap-2">
                           <Button
                             size="sm"
                             variant="outline"
-                            disabled={actionLoadingId === comment.id}
-                            onClick={() => handleUnhide(comment.id)}
+                            onClick={() =>
+                              setReplyingId((current) =>
+                                current === comment.id ? "" : comment.id,
+                              )
+                            }
                           >
-                            <Eye className="h-4 w-4" />
-                            Bỏ ẩn
+                            <MessageCircleReply className="h-4 w-4" />
+                            Trả lời
                           </Button>
-                        ) : (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={actionLoadingId === comment.id}
-                            onClick={() => handleHide(comment.id)}
-                          >
-                            <EyeOff className="h-4 w-4" />
-                            Ẩn
-                          </Button>
-                        )}
+
+                          {hidden ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={actionLoadingId === comment.id}
+                              onClick={() => handleUnhide(comment.id)}
+                            >
+                              <Eye className="h-4 w-4" />
+                              Bỏ ẩn
+                            </Button>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={actionLoadingId === comment.id}
+                              onClick={() => handleHide(comment.id)}
+                            >
+                              <EyeOff className="h-4 w-4" />
+                              Ẩn
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+
+              <div className="mt-5 flex flex-col gap-3 rounded-[26px] border border-cyan-100 bg-white/80 px-4 py-3 text-sm text-slate-500 shadow-sm backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  Hiển thị{" "}
+                  <strong className="text-slate-950">
+                    {(safePage - 1) * pageSize + 1}
+                  </strong>
+                  –
+                  <strong className="text-slate-950">
+                    {Math.min(filteredComments.length, safePage * pageSize)}
+                  </strong>{" "}
+                  trong{" "}
+                  <strong className="text-slate-950">
+                    {filteredComments.length}
+                  </strong>{" "}
+                  bình luận
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => goToPage(safePage - 1)}
+                    disabled={safePage <= 1}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    Trước
+                  </Button>
+
+                  <span className="rounded-2xl border border-cyan-100 bg-cyan-50 px-3 py-2 text-xs font-black text-cyan-700">
+                    {safePage}/{totalPages}
+                  </span>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => goToPage(safePage + 1)}
+                    disabled={safePage >= totalPages}
+                  >
+                    Sau
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </>
           ) : (
             <EmptyState
               title="Chưa có bình luận phù hợp"
