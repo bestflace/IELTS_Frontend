@@ -1,12 +1,10 @@
 {
-  "/page": "app/page.js",
-  "/listening-sets/page": "app/listening-sets/page.js",
-  "/listening-sets/[id]/page": "app/listening-sets/[id]/page.js",
-  "/reading-sets/page": "app/reading-sets/page.js",
-  "/writing-tasks/page": "app/writing-tasks/page.js",
-  "/writing-tasks/[id]/page": "app/writing-tasks/[id]/page.js",
   "/auth/login/page": "app/auth/login/page.js",
-  "/learner/tests/[testId]/page": "app/learner/tests/[testId]/page.js",
-  "/learner/dashboard/page": "app/learner/dashboard/page.js",
-  "/learner/tests/page": "app/learner/tests/page.js"
+  "/teacher/notifications/page": "app/teacher/notifications/page.js",
+  "/teacher/submissions/[submissionId]/page": "app/teacher/submissions/[submissionId]/page.js",
+  "/admin/dashboard/page": "app/admin/dashboard/page.js",
+  "/admin/submissions/page": "app/admin/submissions/page.js",
+  "/admin/comments/page": "app/admin/comments/page.js",
+  "/admin/submissions/[submissionId]/page": "app/admin/submissions/[submissionId]/page.js",
+  "/admin/reports/page": "app/admin/reports/page.js"
 }

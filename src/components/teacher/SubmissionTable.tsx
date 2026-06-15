@@ -23,6 +23,7 @@ import {
 } from "@/components/common/States";
 import { getErrorMessage } from "@/lib/api/client";
 import { getTeacherSubmissions } from "@/lib/api/teacher.api";
+import { useDebounce } from "@/hooks/useDebounce";
 import type { TeacherSubmission } from "@/types";
 import { SubmissionStatusBadge } from "@/components/teacher/SubmissionStatusBadge";
 
@@ -115,6 +116,7 @@ export function SubmissionTable() {
   const [error, setError] = useState("");
 
   const [keyword, setKeyword] = useState("");
+  const debouncedKeyword = useDebounce(keyword, 450);
   const [skill, setSkill] = useState<SkillFilter>("");
   const [status, setStatus] = useState<StatusFilter>("");
   const [page, setPage] = useState(1);
@@ -129,7 +131,7 @@ export function SubmissionTable() {
       const response = await getTeacherSubmissions({
         skill: skill || undefined,
         status: status || undefined,
-        search: keyword.trim() || undefined,
+        search: debouncedKeyword.trim() || undefined,
         limit: 100,
       });
 
@@ -139,7 +141,7 @@ export function SubmissionTable() {
     } finally {
       setLoading(false);
     }
-  }, [keyword, skill, status]);
+  }, [debouncedKeyword, skill, status]);
 
   useEffect(() => {
     loadData();
@@ -147,7 +149,7 @@ export function SubmissionTable() {
 
   useEffect(() => {
     setPage(1);
-  }, [keyword, skill, status, pageSize]);
+  }, [debouncedKeyword, skill, status, pageSize]);
 
   const filteredItems = useMemo(() => {
     const normalized = keyword.trim().toLowerCase();
@@ -267,9 +269,15 @@ export function SubmissionTable() {
               <Input
                 value={keyword}
                 onChange={(event) => setKeyword(event.target.value)}
-                className="pl-9"
+                className="pl-9 pr-24"
                 placeholder="Tìm theo học viên hoặc tên bài..."
               />
+
+              {keyword !== debouncedKeyword ? (
+                <span className="absolute right-3 top-3 text-xs font-semibold text-cyan-600">
+                  Đang chờ...
+                </span>
+              ) : null}
             </div>
 
             <select

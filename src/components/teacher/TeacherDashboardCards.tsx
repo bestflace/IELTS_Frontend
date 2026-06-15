@@ -58,6 +58,27 @@ type TeacherDashboardData = {
   todayReviewed?: number;
   thisWeekReviewed?: number;
 
+  skillBreakdown?: {
+    writing?: {
+      pending?: number;
+      claimed?: number;
+      reviewed?: number;
+    };
+    speaking?: {
+      pending?: number;
+      claimed?: number;
+      reviewed?: number;
+    };
+  };
+  bySkill?: Array<{
+    skill?: string;
+    pending?: number;
+    claimed?: number;
+    reviewed?: number;
+  }>;
+
+  pendingItems?: TeacherSubmissionPreview[];
+  newSubmissions?: TeacherSubmissionPreview[];
   recentSubmissions?: TeacherSubmissionPreview[];
   latestSubmissions?: TeacherSubmissionPreview[];
   submissions?: TeacherSubmissionPreview[];
@@ -68,8 +89,15 @@ type TeacherSubmissionPreview = {
   submissionId?: string;
   attemptId?: string;
   studentName?: string;
+  learnerName?: string | null;
+  learner?: {
+    fullName?: string | null;
+    full_name?: string | null;
+    email?: string | null;
+  } | null;
   student?: {
     fullName?: string | null;
+    full_name?: string | null;
     email?: string | null;
   } | null;
   testTitle?: string;
@@ -131,22 +159,54 @@ function pickNumber(
   return 0;
 }
 
+function pickSkillNumber(
+  data: TeacherDashboardData | null,
+  skill: "writing" | "speaking",
+  metric: "pending" | "claimed" | "reviewed",
+  fallbackKeys: Array<keyof TeacherDashboardData>,
+) {
+  const directValue = data?.skillBreakdown?.[skill]?.[metric];
+
+  if (directValue !== undefined && directValue !== null) {
+    return toNumber(directValue);
+  }
+
+  const row = data?.bySkill?.find(
+    (item) => String(item.skill || "").toUpperCase() === skill.toUpperCase(),
+  );
+
+  const rowValue = row?.[metric];
+
+  if (rowValue !== undefined && rowValue !== null) {
+    return toNumber(rowValue);
+  }
+
+  return pickNumber(data, fallbackKeys);
+}
+
 function getRecentSubmissions(data: TeacherDashboardData | null) {
   if (!data) return [];
 
   return (
+    data.pendingItems ||
+    data.newSubmissions ||
     data.recentSubmissions ||
     data.latestSubmissions ||
     data.submissions ||
     []
-  ).slice(0, 5);
+  ).slice(0, 6);
 }
 
 function getStudentName(item: TeacherSubmissionPreview) {
   return (
     item.studentName ||
+    item.learnerName ||
+    item.learner?.fullName ||
+    item.learner?.full_name ||
     item.student?.fullName ||
+    item.student?.full_name ||
     item.student?.email ||
+    item.learner?.email ||
     "Học viên"
   );
 }
@@ -169,7 +229,7 @@ function getStatusText(status?: string) {
 }
 
 function getSubmissionHref(item: TeacherSubmissionPreview) {
-  const id = item.id || item.submissionId || item.attemptId;
+  const id = item.submissionId || item.id;
 
   if (!id) return "/teacher/submissions";
 
@@ -246,7 +306,7 @@ function SkillProgressCard({
 
         <div className="mt-4 h-2 overflow-hidden rounded-full bg-cyan-50">
           <div
-            className="h-full rounded-full bg-moss"
+            className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-blue-500"
             style={{ width: `${width}%` }}
           />
         </div>
@@ -304,18 +364,22 @@ export function TeacherDashboardCards() {
     "totalReviewed",
   ]);
 
-  const writingPending = pickNumber(dashboard, [
+  const writingPending = pickSkillNumber(dashboard, "writing", "pending", [
     "writingPending",
     "writingWaiting",
   ]);
 
-  const speakingPending = pickNumber(dashboard, [
+  const speakingPending = pickSkillNumber(dashboard, "speaking", "pending", [
     "speakingPending",
     "speakingWaiting",
   ]);
 
-  const writingReviewed = pickNumber(dashboard, ["writingReviewed"]);
-  const speakingReviewed = pickNumber(dashboard, ["speakingReviewed"]);
+  const writingReviewed = pickSkillNumber(dashboard, "writing", "reviewed", [
+    "writingReviewed",
+  ]);
+  const speakingReviewed = pickSkillNumber(dashboard, "speaking", "reviewed", [
+    "speakingReviewed",
+  ]);
 
   const averageBand = dashboard?.averageBand ?? dashboard?.averageScore ?? null;
 

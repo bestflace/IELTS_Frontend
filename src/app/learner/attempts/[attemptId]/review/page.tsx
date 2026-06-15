@@ -258,11 +258,12 @@ function getQuestionStatus(question: ReviewQuestion, answer?: SavedAnswer) {
 }
 
 function getStatusClass(status: string) {
-  if (status === "correct") return "border-cyan-300 bg-cyan-50 text-cyan-700";
+  if (status === "correct")
+    return "border-emerald-300 bg-emerald-50 text-emerald-700";
   if (status === "wrong") return "border-rose-200 bg-rose-50 text-rose-600";
   if (status === "answered")
     return "border-amber-200 bg-amber-50 text-amber-600";
-  return "border-cyan-100 bg-slate-100 text-slate-500";
+  return "border-slate-200 bg-slate-50 text-slate-500";
 }
 
 function getStatusText(status: string) {
@@ -756,7 +757,7 @@ export default function Page({
               <div className="mt-8 grid gap-3 md:grid-cols-4">
                 <div className="rounded-2xl border border-cyan-100 bg-cyan-50/60 p-4">
                   <div className="flex items-center gap-2">
-                    <span className="h-4 w-4 rounded border border-cyan-300 bg-cyan-50" />
+                    <span className="h-4 w-4 rounded border border-emerald-300 bg-emerald-50" />
                     <span className="text-sm font-semibold text-slate-950">
                       Trả lời đúng
                     </span>

@@ -1,1 +1,1 @@
-self.__REACT_LOADABLE_MANIFEST="{}"
+self.__REACT_LOADABLE_MANIFEST="{\"app\\\\admin\\\\imports\\\\new\\\\page.tsx -> xlsx\":{\"id\":\"app\\\\admin\\\\imports\\\\new\\\\page.tsx -> xlsx\",\"files\":[\"static/chunks/_app-pages-browser_node_modules_xlsx_xlsx_mjs.js\"]}}"

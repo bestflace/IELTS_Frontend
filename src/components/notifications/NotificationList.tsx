@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Bell, RefreshCw } from "lucide-react";
+import { Bell, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 
 import { Button } from "@/components/common/Button";
 import { Card, CardContent, CardHeader } from "@/components/common/Card";
@@ -13,6 +13,8 @@ import { NotificationEmptyState } from "@/components/notifications/NotificationE
 import { NotificationItem } from "@/components/notifications/NotificationItem";
 
 type FilterType = "ALL" | "UNREAD";
+
+const PAGE_SIZE_OPTIONS = [5, 10, 15, 20] as const;
 
 function extractItems(response: any) {
   if (Array.isArray(response)) return response;
@@ -34,6 +36,9 @@ function isRead(notification: any) {
 export function NotificationList() {
   const [items, setItems] = useState<any[]>([]);
   const [filter, setFilter] = useState<FilterType>("ALL");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] =
+    useState<(typeof PAGE_SIZE_OPTIONS)[number]>(10);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -43,7 +48,7 @@ export function NotificationList() {
 
     try {
       const response = await getNotifications({
-        limit: 50,
+        limit: 100,
       });
 
       setItems(extractItems(response));
@@ -70,6 +75,21 @@ export function NotificationList() {
 
     return items;
   }, [items, filter]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [filter, pageSize]);
+
+  const totalPages = Math.max(1, Math.ceil(visibleItems.length / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const paginatedItems = visibleItems.slice(
+    (safePage - 1) * pageSize,
+    safePage * pageSize,
+  );
+
+  function goToPage(nextPage: number) {
+    setPage(Math.min(Math.max(1, nextPage), totalPages));
+  }
 
   const markLocalRead = useCallback((notificationId: string) => {
     const now = new Date().toISOString();
@@ -152,6 +172,20 @@ export function NotificationList() {
                 Chưa đọc ({unreadCount})
               </Button>
 
+              <select
+                value={pageSize}
+                onChange={(event) =>
+                  setPageSize(Number(event.target.value) as typeof pageSize)
+                }
+                className="h-11 rounded-2xl border border-cyan-100 bg-white/90 px-3 text-sm font-semibold text-slate-700 outline-none shadow-sm transition focus:border-cyan-300 focus:ring-4 focus:ring-cyan-100/80"
+              >
+                {PAGE_SIZE_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {option} / trang
+                  </option>
+                ))}
+              </select>
+
               <Button type="button" variant="outline" onClick={loadData}>
                 <RefreshCw className="h-4 w-4" />
                 Làm mới
@@ -164,15 +198,63 @@ export function NotificationList() {
 
         <CardContent className="relative">
           {visibleItems.length ? (
-            <div className="space-y-3">
-              {visibleItems.map((notification) => (
-                <NotificationItem
-                  key={notification.id}
-                  notification={notification}
-                  onChanged={markLocalRead}
-                />
-              ))}
-            </div>
+            <>
+              <div className="space-y-3">
+                {paginatedItems.map((notification) => (
+                  <NotificationItem
+                    key={notification.id}
+                    notification={notification}
+                    onChanged={markLocalRead}
+                  />
+                ))}
+              </div>
+
+              <div className="mt-5 flex flex-col gap-3 rounded-[26px] border border-cyan-100 bg-white/80 px-4 py-3 text-sm text-slate-500 shadow-sm backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  Hiển thị{" "}
+                  <strong className="text-slate-950">
+                    {(safePage - 1) * pageSize + 1}
+                  </strong>
+                  –
+                  <strong className="text-slate-950">
+                    {Math.min(visibleItems.length, safePage * pageSize)}
+                  </strong>{" "}
+                  trong{" "}
+                  <strong className="text-slate-950">
+                    {visibleItems.length}
+                  </strong>{" "}
+                  thông báo
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => goToPage(safePage - 1)}
+                    disabled={safePage <= 1}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    Trước
+                  </Button>
+
+                  <span className="rounded-2xl border border-cyan-100 bg-cyan-50 px-3 py-2 text-xs font-black text-cyan-700">
+                    {safePage}/{totalPages}
+                  </span>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => goToPage(safePage + 1)}
+                    disabled={safePage >= totalPages}
+                  >
+                    Sau
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </>
           ) : (
             <NotificationEmptyState />
           )}

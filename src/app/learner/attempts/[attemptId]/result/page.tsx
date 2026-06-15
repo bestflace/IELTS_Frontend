@@ -23,7 +23,11 @@ import {
 import { Badge } from "@/components/common/Badge";
 import { Button } from "@/components/common/Button";
 import { Card, CardContent } from "@/components/common/Card";
-import { getAttemptDetail, getAttemptResult } from "@/lib/api/attempts.api";
+import {
+  getAttemptDetail,
+  getAttemptResult,
+  getAttemptReview,
+} from "@/lib/api/attempts.api";
 import type { Attempt } from "@/types";
 
 type ResultSummary = {
@@ -50,8 +54,11 @@ type ResultDetail = {
 type ResultPayload = {
   attemptId?: string;
   status?: string;
+  startedAt?: string | null;
   submittedAt?: string | null;
   gradedAt?: string | null;
+  expiresAt?: string | null;
+  timeLimitSec?: number | null;
   resultSummary?: ResultSummary | null;
   detail?: ResultDetail[];
   teacherReviews?: any[];
@@ -83,6 +90,65 @@ type ResultPayload = {
   [key: string]: unknown;
 };
 
+type ReviewAnswer = {
+  questionId?: string;
+  question_id?: string;
+  qNo?: number | null;
+  q_no?: number | null;
+  answerJson?: unknown;
+  answer_json?: unknown;
+  userAnswer?: unknown;
+  user_answer?: unknown;
+  isCorrect?: boolean | null;
+  is_correct?: boolean | null;
+  score?: number | null;
+  pointsAwarded?: number | null;
+  correctAnswerJson?: unknown;
+  correct_answer_json?: unknown;
+  explanation?: string | null;
+  [key: string]: unknown;
+};
+
+type ReviewQuestion = {
+  id?: string;
+  qNo?: number | null;
+  q_no?: number | null;
+  correctAnswerJson?: unknown;
+  correct_answer_json?: unknown;
+  explanation?: string | null;
+  points?: number | null;
+  [key: string]: unknown;
+};
+
+type ReviewSection = {
+  sectionType?: string;
+  section_type?: string;
+  readingSet?: {
+    questions?: ReviewQuestion[];
+  } | null;
+  reading_set?: {
+    questions?: ReviewQuestion[];
+  } | null;
+  listeningSet?: {
+    questions?: ReviewQuestion[];
+  } | null;
+  listening_set?: {
+    questions?: ReviewQuestion[];
+  } | null;
+  [key: string]: unknown;
+};
+
+type ReviewPayload = {
+  snapshot?: {
+    sections?: ReviewSection[];
+  };
+  savedAnswers?: ReviewAnswer[];
+  questionAnswers?: ReviewAnswer[];
+  question_answers?: ReviewAnswer[];
+  answers?: ReviewAnswer[];
+  [key: string]: unknown;
+};
+
 function formatDateTime(value?: string | null) {
   if (!value) return "—";
 
@@ -100,7 +166,7 @@ function formatDateTime(value?: string | null) {
 }
 
 function formatDuration(seconds?: number | null) {
-  if (!seconds) return "—";
+  if (seconds === null || seconds === undefined) return "—";
 
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
@@ -160,14 +226,309 @@ function getStatusTone(status?: string | null) {
   return "sage" as const;
 }
 
-function answerToText(value: unknown) {
-  if (value === null || value === undefined || value === "")
-    return "Chưa trả lời";
+const ANSWER_VALUE_KEYS = [
+  "userAnswer",
+  "user_answer",
+  "answerJson",
+  "answer_json",
+  "answer",
+  "answers",
+  "value",
+  "values",
+  "selected",
+  "selectedOptions",
+  "selected_option",
+  "selectedOptionsJson",
+] as const;
+
+const CORRECT_VALUE_KEYS = [
+  "correctAnswer",
+  "correct_answer",
+  "correctAnswerJson",
+  "correct_answer_json",
+  "answerKey",
+  "answer_key",
+  "correct",
+] as const;
+
+function isBlankAnswer(value: unknown): boolean {
+  if (value === null || value === undefined) return true;
+  if (typeof value === "string") return value.trim() === "";
+  if (Array.isArray(value))
+    return value.length === 0 || value.every(isBlankAnswer);
+
+  if (typeof value === "object") {
+    const obj = value as Record<string, unknown>;
+    const keys = Object.keys(obj);
+
+    if (keys.length === 0) return true;
+
+    for (const key of ANSWER_VALUE_KEYS) {
+      if (key in obj) return isBlankAnswer(obj[key]);
+    }
+  }
+
+  return false;
+}
+
+function pickFirstNonBlank(...values: unknown[]) {
+  for (const value of values) {
+    if (!isBlankAnswer(value)) return value;
+  }
+
+  return undefined;
+}
+
+function pickByKeys(source: unknown, keys: readonly string[]) {
+  if (!source || typeof source !== "object") return undefined;
+
+  const obj = source as Record<string, unknown>;
+
+  for (const key of keys) {
+    if (key in obj && !isBlankAnswer(obj[key])) {
+      return obj[key];
+    }
+  }
+
+  return undefined;
+}
+
+function unwrapAnswerValue(value: unknown): unknown {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+
+  const obj = value as Record<string, unknown>;
+
+  for (const key of ANSWER_VALUE_KEYS) {
+    if (key in obj) return unwrapAnswerValue(obj[key]);
+  }
+
+  return value;
+}
+
+function getDetailUserAnswer(item: ResultDetail) {
+  return unwrapAnswerValue(
+    pickFirstNonBlank(
+      pickByKeys(item, ANSWER_VALUE_KEYS),
+      pickByKeys((item as any).answer, ANSWER_VALUE_KEYS),
+      pickByKeys((item as any).savedAnswer, ANSWER_VALUE_KEYS),
+      pickByKeys((item as any).saved_answer, ANSWER_VALUE_KEYS),
+      pickByKeys((item as any).questionAnswer, ANSWER_VALUE_KEYS),
+      pickByKeys((item as any).question_answer, ANSWER_VALUE_KEYS),
+    ),
+  );
+}
+
+function getDetailCorrectAnswer(item: ResultDetail) {
+  return unwrapAnswerValue(
+    pickFirstNonBlank(
+      pickByKeys(item, CORRECT_VALUE_KEYS),
+      pickByKeys((item as any).question, CORRECT_VALUE_KEYS),
+      pickByKeys((item as any).answer, CORRECT_VALUE_KEYS),
+      pickByKeys((item as any).savedAnswer, CORRECT_VALUE_KEYS),
+      pickByKeys((item as any).saved_answer, CORRECT_VALUE_KEYS),
+      pickByKeys((item as any).questionAnswer, CORRECT_VALUE_KEYS),
+      pickByKeys((item as any).question_answer, CORRECT_VALUE_KEYS),
+    ),
+  );
+}
+
+function answerToText(value: unknown): string {
+  if (isBlankAnswer(value)) return "Chưa trả lời";
   if (typeof value === "string") return value;
   if (typeof value === "number" || typeof value === "boolean")
     return String(value);
-  if (Array.isArray(value)) return value.join(", ");
+  if (Array.isArray(value)) return value.map(answerToText).join(", ");
+
+  const unwrapped = unwrapAnswerValue(value);
+
+  if (unwrapped !== value) return answerToText(unwrapped);
+
   return JSON.stringify(value);
+}
+
+function normalizeAnswerForCompare(value: unknown): string {
+  return answerToText(value).trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function compareAnswers(userAnswer: unknown, correctAnswer: unknown) {
+  if (isBlankAnswer(userAnswer) || isBlankAnswer(correctAnswer)) return null;
+
+  return (
+    normalizeAnswerForCompare(userAnswer) ===
+    normalizeAnswerForCompare(correctAnswer)
+  );
+}
+
+function getDetailCorrectState(
+  item: ResultDetail,
+  userAnswer: unknown,
+  correctAnswer: unknown,
+) {
+  const direct =
+    item.isCorrect ??
+    (item as any).is_correct ??
+    (item as any).answer?.isCorrect ??
+    (item as any).answer?.is_correct ??
+    (item as any).savedAnswer?.isCorrect ??
+    (item as any).saved_answer?.is_correct ??
+    null;
+
+  if (typeof direct === "boolean") return direct;
+
+  return compareAnswers(userAnswer, correctAnswer);
+}
+
+function getReviewSections(payload?: ReviewPayload | null): ReviewSection[] {
+  const sections =
+    payload?.snapshot?.sections ||
+    (payload as any)?.snapshot?.testSnapshotJson?.sections ||
+    (payload as any)?.snapshot?.test_snapshot_json?.sections ||
+    [];
+
+  return Array.isArray(sections) ? sections : [];
+}
+
+function getSectionQuestions(section: ReviewSection): ReviewQuestion[] {
+  const questions =
+    section.readingSet?.questions ||
+    section.reading_set?.questions ||
+    section.listeningSet?.questions ||
+    section.listening_set?.questions ||
+    [];
+
+  return Array.isArray(questions) ? questions : [];
+}
+
+function getReviewAnswerMaps(payload?: ReviewPayload | null) {
+  const answers =
+    payload?.savedAnswers ||
+    payload?.questionAnswers ||
+    payload?.question_answers ||
+    payload?.answers ||
+    [];
+
+  const byQuestionId = new Map<string, ReviewAnswer>();
+  const byQNo = new Map<number, ReviewAnswer>();
+
+  if (Array.isArray(answers)) {
+    answers.forEach((answer) => {
+      const questionId = answer.questionId || answer.question_id;
+      const qNo = answer.qNo ?? answer.q_no;
+
+      if (questionId) byQuestionId.set(String(questionId), answer);
+      if (qNo !== null && qNo !== undefined) byQNo.set(Number(qNo), answer);
+    });
+  }
+
+  return { byQuestionId, byQNo };
+}
+
+function buildDetailsFromReview(
+  payload?: ReviewPayload | null,
+): ResultDetail[] {
+  const { byQuestionId, byQNo } = getReviewAnswerMaps(payload);
+
+  return getReviewSections(payload)
+    .flatMap(getSectionQuestions)
+    .map((question, index) => {
+      const questionId = question.id ? String(question.id) : "";
+      const qNo = question.qNo ?? question.q_no ?? index + 1;
+      const answer =
+        (questionId ? byQuestionId.get(questionId) : undefined) ||
+        byQNo.get(Number(qNo));
+
+      return {
+        id: questionId || `${qNo}`,
+        questionId,
+        qNo: Number(qNo),
+        userAnswer:
+          answer?.answerJson ??
+          answer?.answer_json ??
+          answer?.userAnswer ??
+          answer?.user_answer,
+        correctAnswer:
+          answer?.correctAnswerJson ??
+          answer?.correct_answer_json ??
+          question.correctAnswerJson ??
+          question.correct_answer_json,
+        isCorrect: answer?.isCorrect ?? answer?.is_correct ?? null,
+        score: answer?.score ?? answer?.pointsAwarded ?? null,
+        points: question.points ?? null,
+        explanation: answer?.explanation ?? question.explanation ?? null,
+      };
+    });
+}
+
+function getDetailKey(item: ResultDetail, index: number): string {
+  return String(item.questionId || item.id || item.qNo || index);
+}
+
+function mergeResultAndReviewDetails(
+  resultDetails: ResultDetail[],
+  reviewDetails: ResultDetail[],
+) {
+  if (!resultDetails.length) return reviewDetails;
+
+  const reviewByQuestionId = new Map<string, ResultDetail>();
+  const reviewByQNo = new Map<number, ResultDetail>();
+
+  reviewDetails.forEach((item) => {
+    if (item.questionId) reviewByQuestionId.set(String(item.questionId), item);
+    if (item.qNo !== null && item.qNo !== undefined) {
+      reviewByQNo.set(Number(item.qNo), item);
+    }
+  });
+
+  return resultDetails.map((item, index) => {
+    const reviewItem =
+      (item.questionId
+        ? reviewByQuestionId.get(String(item.questionId))
+        : undefined) ||
+      (item.qNo !== null && item.qNo !== undefined
+        ? reviewByQNo.get(Number(item.qNo))
+        : undefined) ||
+      reviewByQNo.get(index + 1);
+
+    if (!reviewItem) return item;
+
+    const userAnswer = pickFirstNonBlank(
+      getDetailUserAnswer(item),
+      getDetailUserAnswer(reviewItem),
+    );
+    const correctAnswer = pickFirstNonBlank(
+      getDetailCorrectAnswer(item),
+      getDetailCorrectAnswer(reviewItem),
+    );
+
+    return {
+      ...reviewItem,
+      ...item,
+      questionId: item.questionId || reviewItem.questionId,
+      qNo: item.qNo ?? reviewItem.qNo ?? index + 1,
+      userAnswer,
+      correctAnswer,
+      isCorrect:
+        item.isCorrect ??
+        (item as any).is_correct ??
+        reviewItem.isCorrect ??
+        (reviewItem as any).is_correct ??
+        null,
+      explanation: item.explanation || reviewItem.explanation || null,
+    };
+  });
+}
+
+function calculateDurationFromDates(
+  startedAt?: string | null,
+  endedAt?: string | null,
+) {
+  if (!startedAt || !endedAt) return null;
+
+  const duration = Math.floor(
+    (new Date(endedAt).getTime() - new Date(startedAt).getTime()) / 1000,
+  );
+
+  return Number.isFinite(duration) && duration >= 0 ? duration : null;
 }
 
 function getOverallBand(result?: ResultPayload | null) {
@@ -323,6 +684,7 @@ export default function Page({
 
   const [attempt, setAttempt] = useState<Attempt | null>(null);
   const [result, setResult] = useState<ResultPayload | null>(null);
+  const [review, setReview] = useState<ReviewPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -331,13 +693,15 @@ export default function Page({
     setError("");
 
     try {
-      const [attemptData, resultData] = await Promise.all([
+      const [attemptData, resultData, reviewData] = await Promise.all([
         getAttemptDetail(attemptId),
         getAttemptResult(attemptId),
+        getAttemptReview(attemptId).catch(() => null),
       ]);
 
       setAttempt(attemptData);
       setResult(resultData || {});
+      setReview(reviewData || null);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Không thể tải kết quả bài làm",
@@ -360,6 +724,13 @@ export default function Page({
   const resultStatus = result?.status || attempt?.status;
   const title = getAttemptTitle(attempt, result);
 
+  const startedAt =
+    result?.startedAt ||
+    (attempt as any)?.startedAt ||
+    (attempt as any)?.started_at ||
+    result?.attempt?.startedAt ||
+    null;
+
   const submittedAt =
     result?.submittedAt ||
     (attempt as any)?.submittedAt ||
@@ -373,16 +744,21 @@ export default function Page({
     (attempt as any)?.graded_at ||
     null;
 
-  const durationSec = pickNumber(
-    result?.durationSec,
-    result?.timeSpentSec,
-    result?.summary?.durationSec,
-    result?.result?.durationSec,
-  );
+  const durationSec =
+    pickNumber(
+      result?.durationSec,
+      result?.timeSpentSec,
+      result?.summary?.durationSec,
+      result?.result?.durationSec,
+    ) ?? calculateDurationFromDates(startedAt, submittedAt);
 
   const summaryFeedback = getSummaryFeedback(result);
   const accuracy = getAccuracy(correctCount, questionCount);
-  const details = result?.detail || [];
+  const reviewDetails = useMemo(() => buildDetailsFromReview(review), [review]);
+  const details = useMemo(
+    () => mergeResultAndReviewDetails(result?.detail || [], reviewDetails),
+    [result, reviewDetails],
+  );
 
   const isReady =
     resultStatus === "GRADED" ||
@@ -490,6 +866,9 @@ export default function Page({
             </p>
 
             <div className="mt-6 flex flex-wrap gap-3 text-sm font-semibold text-slate-500">
+              <span className="rounded-full border border-cyan-100 bg-cyan-50 px-4 py-2">
+                Bắt đầu: {formatDateTime(startedAt)}
+              </span>
               <span className="rounded-full border border-cyan-100 bg-cyan-50 px-4 py-2">
                 Nộp: {formatDateTime(submittedAt)}
               </span>
@@ -657,38 +1036,54 @@ export default function Page({
               </div>
 
               <div className="divide-y divide-cyan-100 bg-white/70">
-                {details.slice(0, 20).map((item, index) => (
-                  <div
-                    key={item.id || item.questionId || index}
-                    className="grid gap-3 px-5 py-4 md:grid-cols-[80px_1fr_1fr_110px] md:items-center"
-                  >
-                    <span className="font-black text-slate-900">
-                      {item.qNo || index + 1}
-                    </span>
+                {details.map((item, index) => {
+                  const userAnswer = getDetailUserAnswer(item);
+                  const correctAnswer = getDetailCorrectAnswer(item);
+                  const unanswered = isBlankAnswer(userAnswer);
+                  const correctState = getDetailCorrectState(
+                    item,
+                    userAnswer,
+                    correctAnswer,
+                  );
+                  const correct = !unanswered && correctState === true;
 
-                    <p className="text-sm font-semibold text-slate-600">
-                      {answerToText(item.userAnswer)}
-                    </p>
+                  return (
+                    <div
+                      key={item.id || item.questionId || index}
+                      className="grid gap-3 px-5 py-4 md:grid-cols-[80px_1fr_1fr_110px] md:items-center"
+                    >
+                      <span className="font-black text-slate-900">
+                        {item.qNo || index + 1}
+                      </span>
 
-                    <p className="text-sm font-semibold text-cyan-700">
-                      {answerToText(item.correctAnswer)}
-                    </p>
+                      <p className="text-sm font-semibold text-slate-600">
+                        {answerToText(userAnswer)}
+                      </p>
 
-                    <div>
-                      {item.isCorrect ? (
-                        <span className="inline-flex items-center gap-1 rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1.5 text-xs font-black text-emerald-700">
-                          <CheckCircle2 className="h-3.5 w-3.5" />
-                          Đúng
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 rounded-full border border-rose-100 bg-rose-50 px-3 py-1.5 text-xs font-black text-rose-700">
-                          <XCircle className="h-3.5 w-3.5" />
-                          Sai
-                        </span>
-                      )}
+                      <p className="text-sm font-semibold text-cyan-700">
+                        {answerToText(correctAnswer)}
+                      </p>
+
+                      <div>
+                        {unanswered ? (
+                          <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-black text-slate-500">
+                            Chưa trả lời
+                          </span>
+                        ) : correct ? (
+                          <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-black text-emerald-700">
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                            Đúng
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-black text-rose-700">
+                            <XCircle className="h-3.5 w-3.5" />
+                            Sai
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </CardContent>

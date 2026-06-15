@@ -31,9 +31,9 @@ import { Button } from "@/components/common/Button";
 import { Card } from "@/components/common/Card";
 import {
   getAttemptSession,
+  saveQuestionAnswers,
   saveWritingResponses,
   submitAttempt,
-  updateOneQuestionAnswer,
 } from "@/lib/api/attempts.api";
 
 type SaveState = "idle" | "saving" | "saved" | "error";
@@ -150,9 +150,12 @@ type Question = {
 };
 
 type SavedAnswer = {
-  questionId: string;
+  questionId?: string;
+  question_id?: string;
   qNo?: number | null;
+  q_no?: number | null;
   answerJson?: unknown;
+  answer_json?: unknown;
 };
 
 type WritingResponse = {
@@ -164,6 +167,14 @@ type SpeakingResponse = {
   speaking_part?: "PART_1" | "PART_2" | "PART_3" | string | null;
   audioUrl?: string | null;
   audio_url?: string | null;
+};
+
+type AttemptDraftBackup = {
+  version: 1;
+  attemptId: string;
+  answers: Record<string, unknown>;
+  writingDrafts: Record<string, string>;
+  updatedAt: string;
 };
 type AttemptPart =
   | {
@@ -296,10 +307,34 @@ function filterQuestionsByRange(
   });
 }
 
+const ATTEMPT_DRAFT_VERSION = 1;
+
 function hasAnswer(value: unknown) {
   if (value === null || value === undefined) return false;
-  if (Array.isArray(value)) return value.length > 0;
-  if (typeof value === "object") return Object.keys(value).length > 0;
+  if (typeof value === "string") return value.trim() !== "";
+  if (Array.isArray(value)) return value.some(hasAnswer);
+
+  if (typeof value === "object") {
+    const obj = value as Record<string, unknown>;
+
+    if (Object.keys(obj).length === 0) return false;
+
+    for (const key of [
+      "value",
+      "values",
+      "answer",
+      "answers",
+      "selected",
+      "selectedOptions",
+      "answerJson",
+      "answer_json",
+    ]) {
+      if (key in obj) return hasAnswer(obj[key]);
+    }
+
+    return true;
+  }
+
   return String(value).trim() !== "";
 }
 
@@ -314,10 +349,137 @@ function getInitialAnswers(savedAnswers?: SavedAnswer[]) {
   const map: Record<string, unknown> = {};
 
   savedAnswers?.forEach((answer) => {
-    map[answer.questionId] = answer.answerJson ?? "";
+    const questionId = answer.questionId || answer.question_id;
+
+    if (!questionId) return;
+
+    map[questionId] = answer.answerJson ?? answer.answer_json ?? "";
   });
 
   return map;
+}
+
+function getDraftStorageKey(attemptId: string) {
+  return `ieltsbf:attempt-draft:${attemptId}`;
+}
+
+function safeParseDraft(raw: string | null): AttemptDraftBackup | null {
+  if (!raw) return null;
+
+  try {
+    const parsed = JSON.parse(raw) as AttemptDraftBackup;
+
+    if (
+      parsed?.version !== ATTEMPT_DRAFT_VERSION ||
+      !parsed.attemptId ||
+      typeof parsed.answers !== "object" ||
+      typeof parsed.writingDrafts !== "object"
+    ) {
+      return null;
+    }
+
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function readAttemptDraft(attemptId: string): AttemptDraftBackup | null {
+  if (typeof window === "undefined") return null;
+
+  return safeParseDraft(
+    window.localStorage.getItem(getDraftStorageKey(attemptId)),
+  );
+}
+
+function writeAttemptDraft(
+  attemptId: string,
+  answers: Record<string, unknown>,
+  writingDrafts: Record<string, string>,
+) {
+  if (typeof window === "undefined") return;
+
+  const draft: AttemptDraftBackup = {
+    version: ATTEMPT_DRAFT_VERSION,
+    attemptId,
+    answers,
+    writingDrafts,
+    updatedAt: new Date().toISOString(),
+  };
+
+  try {
+    window.localStorage.setItem(
+      getDraftStorageKey(attemptId),
+      JSON.stringify(draft),
+    );
+  } catch {
+    // Ignore storage quota/private mode errors. Server autosave is still the source of truth.
+  }
+}
+
+function clearAttemptDraft(attemptId: string) {
+  if (typeof window === "undefined") return;
+
+  try {
+    window.localStorage.removeItem(getDraftStorageKey(attemptId));
+  } catch {
+    // Ignore storage errors.
+  }
+}
+
+function hasDraftContent(draft: AttemptDraftBackup | null) {
+  if (!draft) return false;
+
+  return (
+    Object.values(draft.answers || {}).some(hasAnswer) ||
+    Object.values(draft.writingDrafts || {}).some(
+      (value) => value.trim() !== "",
+    )
+  );
+}
+
+function mergeAnswersWithDraft(
+  serverAnswers: Record<string, unknown>,
+  draft: AttemptDraftBackup | null,
+) {
+  if (!draft) return serverAnswers;
+
+  return {
+    ...serverAnswers,
+    ...(draft.answers || {}),
+  };
+}
+
+function mergeWritingWithDraft(
+  serverDrafts: Record<string, string>,
+  draft: AttemptDraftBackup | null,
+) {
+  if (!draft) return serverDrafts;
+
+  return {
+    ...serverDrafts,
+    ...(draft.writingDrafts || {}),
+  };
+}
+
+function buildQuestionAnswerPayload(
+  questions: Question[],
+  answers: Record<string, unknown>,
+  isFinal: boolean,
+) {
+  return questions.map((question) => ({
+    questionId: question.id,
+    qNo: typeof question.qNo === "number" ? question.qNo : undefined,
+    answerJson: answers[question.id] ?? "",
+    isFinal,
+  }));
+}
+
+function buildWritingResponsePayload(writingDrafts: Record<string, string>) {
+  return Object.entries(writingDrafts).map(([writingTaskId, responseText]) => ({
+    writingTaskId,
+    responseText,
+  }));
 }
 
 function getWritingTaskNo(task: WritingTask, fallback: number) {
@@ -543,16 +705,20 @@ export function AttemptSessionPage({ attemptId }: { attemptId: string }) {
     {},
   );
 
-  const [dirtyQuestionId, setDirtyQuestionId] = useState<string | null>(null);
-  const [dirtyWritingTaskId, setDirtyWritingTaskId] = useState<string | null>(
-    null,
-  );
+  const [dirtyQuestionVersions, setDirtyQuestionVersions] = useState<
+    Record<string, number>
+  >({});
+  const [dirtyWritingVersions, setDirtyWritingVersions] = useState<
+    Record<string, number>
+  >({});
 
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [submitOpen, setSubmitOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const questionRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const answersRef = useRef<Record<string, unknown>>({});
+  const writingDraftsRef = useRef<Record<string, string>>({});
 
   const loadSession = useCallback(async () => {
     setLoading(true);
@@ -578,8 +744,15 @@ export function AttemptSessionPage({ attemptId }: { attemptId: string }) {
           [],
       };
 
+      const localDraft = readAttemptDraft(attemptId);
+      const initialAnswers = mergeAnswersWithDraft(
+        getInitialAnswers(normalizedSession.savedAnswers),
+        localDraft,
+      );
+
       setSession(normalizedSession);
-      setAnswers(getInitialAnswers(normalizedSession.savedAnswers));
+      setAnswers(initialAnswers);
+      answersRef.current = initialAnswers;
 
       setRemaining(
         data.attempt.remainingTimeSec ?? data.attempt.timeLimitSec ?? null,
@@ -591,7 +764,14 @@ export function AttemptSessionPage({ attemptId }: { attemptId: string }) {
         drafts[response.writingTaskId] = response.responseText || "";
       });
 
-      setWritingDrafts(drafts);
+      const mergedDrafts = mergeWritingWithDraft(drafts, localDraft);
+
+      setWritingDrafts(mergedDrafts);
+      writingDraftsRef.current = mergedDrafts;
+
+      if (hasDraftContent(localDraft)) {
+        toast.info("Đã khôi phục bản nháp chưa kịp đồng bộ từ trình duyệt.");
+      }
     } catch (err) {
       setLoadError(
         err instanceof Error ? err.message : "Không thể tải phòng thi.",
@@ -604,6 +784,34 @@ export function AttemptSessionPage({ attemptId }: { attemptId: string }) {
   useEffect(() => {
     loadSession();
   }, [loadSession]);
+
+  useEffect(() => {
+    answersRef.current = answers;
+  }, [answers]);
+
+  useEffect(() => {
+    writingDraftsRef.current = writingDrafts;
+  }, [writingDrafts]);
+
+  useEffect(() => {
+    if (!session || session.attempt.status !== "IN_PROGRESS") return;
+
+    writeAttemptDraft(attemptId, answers, writingDrafts);
+  }, [attemptId, answers, writingDrafts, session]);
+
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      writeAttemptDraft(
+        attemptId,
+        answersRef.current,
+        writingDraftsRef.current,
+      );
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [attemptId]);
 
   useEffect(() => {
     if (remaining === null || remaining <= 0) return;
@@ -678,31 +886,42 @@ export function AttemptSessionPage({ attemptId }: { attemptId: string }) {
 
   useDebouncedEffect(
     () => {
-      if (!dirtyQuestionId || !session || readonly) return;
+      const dirtyEntries = Object.entries(dirtyQuestionVersions);
 
-      const questionId = dirtyQuestionId;
-      const question = questionById.get(questionId);
+      if (!dirtyEntries.length || !session || readonly) return;
 
-      if (!question) return;
+      const versionSnapshot = Object.fromEntries(dirtyEntries);
+      const dirtyQuestions = dirtyEntries
+        .map(([questionId]) => questionById.get(questionId))
+        .filter((question): question is Question => Boolean(question));
 
-      const qNo = typeof question.qNo === "number" ? question.qNo : undefined;
-      const answerJson = answers[questionId];
+      if (!dirtyQuestions.length) return;
 
       async function save() {
         setSaveState("saving");
 
         try {
-          await updateOneQuestionAnswer(attemptId, questionId, {
-            qNo,
-            answerJson,
-            isFinal: false,
+          await saveQuestionAnswers(attemptId, {
+            answers: buildQuestionAnswerPayload(
+              dirtyQuestions,
+              answersRef.current,
+              false,
+            ),
           });
 
           setSaveState("saved");
 
-          setDirtyQuestionId((current) =>
-            current === questionId ? null : current,
-          );
+          setDirtyQuestionVersions((current) => {
+            const next = { ...current };
+
+            Object.entries(versionSnapshot).forEach(([questionId, version]) => {
+              if (next[questionId] === version) {
+                delete next[questionId];
+              }
+            });
+
+            return next;
+          });
         } catch {
           setSaveState("error");
         }
@@ -710,35 +929,43 @@ export function AttemptSessionPage({ attemptId }: { attemptId: string }) {
 
       save();
     },
-    [dirtyQuestionId, answers, attemptId, readonly, questionById, session],
+    [dirtyQuestionVersions, attemptId, readonly, questionById, session],
     650,
   );
 
   useDebouncedEffect(
     () => {
-      if (!dirtyWritingTaskId || !session || readonly) return;
+      const dirtyEntries = Object.entries(dirtyWritingVersions);
 
-      const writingTaskId = dirtyWritingTaskId;
-      const responseText = writingDrafts[writingTaskId] || "";
+      if (!dirtyEntries.length || !session || readonly) return;
+
+      const versionSnapshot = Object.fromEntries(dirtyEntries);
+      const responses = dirtyEntries.map(([writingTaskId]) => ({
+        writingTaskId,
+        responseText: writingDraftsRef.current[writingTaskId] || "",
+      }));
 
       async function save() {
         setSaveState("saving");
 
         try {
           await saveWritingResponses(attemptId, {
-            responses: [
-              {
-                writingTaskId,
-                responseText,
-              },
-            ],
+            responses,
           });
 
           setSaveState("saved");
 
-          setDirtyWritingTaskId((current) =>
-            current === writingTaskId ? null : current,
-          );
+          setDirtyWritingVersions((current) => {
+            const next = { ...current };
+
+            Object.entries(versionSnapshot).forEach(([taskId, version]) => {
+              if (next[taskId] === version) {
+                delete next[taskId];
+              }
+            });
+
+            return next;
+          });
         } catch {
           setSaveState("error");
         }
@@ -746,28 +973,79 @@ export function AttemptSessionPage({ attemptId }: { attemptId: string }) {
 
       save();
     },
-    [dirtyWritingTaskId, writingDrafts, attemptId, readonly, session],
+    [dirtyWritingVersions, attemptId, readonly, session],
     650,
   );
 
   function changeAnswer(question: Question, value: unknown) {
-    setAnswers((current) => ({
-      ...current,
-      [question.id]: value,
-    }));
+    setAnswers((current) => {
+      const next = {
+        ...current,
+        [question.id]: value,
+      };
 
-    setDirtyQuestionId(question.id);
+      answersRef.current = next;
+      writeAttemptDraft(attemptId, next, writingDraftsRef.current);
+
+      return next;
+    });
+
+    setDirtyQuestionVersions((current) => ({
+      ...current,
+      [question.id]: (current[question.id] || 0) + 1,
+    }));
     setSaveState("saving");
   }
 
   function changeWriting(taskId: string, value: string) {
-    setWritingDrafts((current) => ({
-      ...current,
-      [taskId]: value,
-    }));
+    setWritingDrafts((current) => {
+      const next = {
+        ...current,
+        [taskId]: value,
+      };
 
-    setDirtyWritingTaskId(taskId);
+      writingDraftsRef.current = next;
+      writeAttemptDraft(attemptId, answersRef.current, next);
+
+      return next;
+    });
+
+    setDirtyWritingVersions((current) => ({
+      ...current,
+      [taskId]: (current[taskId] || 0) + 1,
+    }));
     setSaveState("saving");
+  }
+
+  async function flushCurrentDrafts(isFinal: boolean) {
+    if (!session) return;
+
+    setSaveState("saving");
+
+    const questionPayload = buildQuestionAnswerPayload(
+      allQuestions,
+      answersRef.current,
+      isFinal,
+    );
+    const writingPayload = buildWritingResponsePayload(
+      writingDraftsRef.current,
+    );
+
+    if (questionPayload.length > 0) {
+      await saveQuestionAnswers(attemptId, {
+        answers: questionPayload,
+      });
+    }
+
+    if (writingPayload.length > 0) {
+      await saveWritingResponses(attemptId, {
+        responses: writingPayload,
+      });
+    }
+
+    setDirtyQuestionVersions({});
+    setDirtyWritingVersions({});
+    setSaveState("saved");
   }
 
   function goToSkill(skill: AttemptSkill) {
@@ -802,7 +1080,10 @@ export function AttemptSessionPage({ attemptId }: { attemptId: string }) {
     setSubmitting(true);
 
     try {
+      await flushCurrentDrafts(true);
       await submitAttempt(attemptId, { force: true });
+
+      clearAttemptDraft(attemptId);
 
       toast.success("Đã nộp bài. Hệ thống đang xử lý kết quả.");
       router.replace(`/learner/attempts/${attemptId}/status`);
@@ -816,6 +1097,7 @@ export function AttemptSessionPage({ attemptId }: { attemptId: string }) {
         lower.includes("already") ||
         lower.includes("đã nộp")
       ) {
+        clearAttemptDraft(attemptId);
         toast.info("Bài đã được nộp trước đó.");
         router.replace(`/learner/attempts/${attemptId}/status`);
         return;

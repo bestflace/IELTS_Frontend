@@ -2472,6 +2472,14 @@ video {
 .border-white\/\[0\.85\] {
   border-color: rgb(255 255 255 / 0.85);
 }
+.border-emerald-200 {
+  --tw-border-opacity: 1;
+  border-color: rgb(167 243 208 / var(--tw-border-opacity, 1));
+}
+.border-emerald-300 {
+  --tw-border-opacity: 1;
+  border-color: rgb(110 231 183 / var(--tw-border-opacity, 1));
+}
 .bg-\[\#0AAEB4\] {
   --tw-bg-opacity: 1;
   background-color: rgb(10 174 180 / var(--tw-bg-opacity, 1));
@@ -3810,6 +3818,9 @@ video {
 }
 .pt-6 {
   padding-top: 1.5rem;
+}
+.pr-24 {
+  padding-right: 6rem;
 }
 .text-left {
   text-align: left;
